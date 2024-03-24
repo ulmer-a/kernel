@@ -1,0 +1,9 @@
+[unstable]
+build-std = ["core", "compiler_builtins", "alloc"]
+build-std-features = ["compiler-builtins-mem"]
+
+[build]
+target = "./target_config/x86.json"
+
+[target.x86]
+runner = "qemu-system-i386 -s -m 256M -debugcon stdio -kernel "

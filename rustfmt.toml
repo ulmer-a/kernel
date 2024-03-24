@@ -1,0 +1,19 @@
+# general
+max_width = 100
+newline_style = "Unix"
+blank_lines_upper_bound = 2
+
+# general layout, strings
+format_strings = true
+enum_discrim_align_threshold = 50
+
+# handling curly braces
+empty_item_single_line = true
+
+# comments
+comment_width = 100
+wrap_comments = true
+normalize_comments = true
+
+# misc
+condense_wildcard_suffixes = true
