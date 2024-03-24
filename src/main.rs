@@ -6,11 +6,10 @@
 
 // extern crate alloc;
 
-mod boot;
-
 mod arch;
-
+mod boot;
 mod logging;
+mod mem;
 
 /// The panic handler is called whenever the kernel encountered an unrecoverable error. It's purpose
 /// is to halt the system and report debug information to the user.

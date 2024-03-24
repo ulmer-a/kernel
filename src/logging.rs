@@ -1,22 +1,22 @@
 //! Temporary implementation of kernel log
 
 use core::fmt::Write;
-use log::{Level, Metadata, Record};
+use log::{Metadata, Record};
 
 /// Global instance of the kernel logger.
 static LOGGER: KernelLog = KernelLog {};
 
 pub fn initialize_kernel_log() {
     log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(log::LevelFilter::Info))
+        .map(|()| log::set_max_level(log::LevelFilter::Trace))
         .unwrap();
 }
 
 struct KernelLog;
 
 impl log::Log for KernelLog {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
+    fn enabled(&self, _: &Metadata) -> bool {
+        true
     }
 
     fn log(&self, record: &Record) {

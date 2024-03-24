@@ -80,6 +80,13 @@ extern "C" fn multiboot_start(magic: u32, mb_ptr: *const multiboot::BootInfo) ->
         },
     );
 
+    // Print memory map to kernel log
+    debug!("Memory map:");
+    for mem_chunk in multiboot.memory_map().expect("Ain't got no mmmap") {
+        debug!("├─ {}", mem_chunk);
+    }
+    debug!("└─ total: XXX");
+
     // TODO Implement the rest of the boot process here.
     crate::arch::halt_core();
 }

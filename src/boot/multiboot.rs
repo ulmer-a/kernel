@@ -14,6 +14,8 @@
 // Only compile this module on `x86` (IA-32) architecture
 #![cfg(target_arch = "x86")]
 
+use crate::mem::{MemoryChunk, MemoryChunkClass};
+
 /// The multiboot header must be present in the first 8KB of every multiboot-compliant kernel image.
 /// It is used to indicate to the bootloader which features and information the kernel requires.
 #[repr(C, packed)]
@@ -161,8 +163,112 @@ impl BootInfo {
     pub fn command_line(&self) -> Option<&core::ffi::CStr> {
         const COMMAND_LINE_PRESENT: u32 = 1 << 2;
         if self.flags & COMMAND_LINE_PRESENT != 0 && !self.cmdline.is_null() {
-            return Some(unsafe { core::ffi::CStr::from_ptr(self.cmdline) });
+            Some(unsafe { core::ffi::CStr::from_ptr(self.cmdline) })
+        } else {
+            None
         }
-        None
+    }
+
+    /// This function returns an iterator that can be used to traverse the memory map passed on to
+    /// the kernel by the bootloader or `None` if there is no memory map present.
+    pub fn memory_map<'mb>(&'mb self) -> Option<impl Iterator<Item = MemoryChunk> + 'mb> {
+        use core::slice;
+
+        const MEMORY_MAP_PRESENT: u32 = 1 << 6;
+        if self.flags & MEMORY_MAP_PRESENT != 0 && !self.mmap.is_null() {
+            Some(MemoryMap {
+                // Safety: We just checked that the memory map is present and the pointer to its
+                // memory is non-null.
+                buffer: unsafe { slice::from_raw_parts::<'mb>(self.mmap, self.mmap_length) },
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Provides an iterator over the multiboot memory map.
+#[derive(Clone)]
+struct MemoryMap<'mb> {
+    /// Reference to the buffer from [BootInfo] that contains all the memory map entries.
+    buffer: &'mb [u8],
+}
+
+impl Iterator for MemoryMap<'_> {
+    type Item = MemoryChunk;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: We want to take a reference to the first memory map entry that is contained
+        // in the buffer. So, if the buffer is large enough, transmute the first matching bytes
+        // to a MemoryMapEntry. This type has the correct layout and uses repr(C), so we should
+        // be fine.
+        let (head, body, _) = unsafe { self.buffer.align_to::<MemoryMapEntry>() };
+        assert_eq!(head.len(), 0);
+
+        let entry = body.first()?;
+        self.buffer = &self.buffer[entry.offset_to_next()..];
+        Some(entry.into())
+    }
+}
+
+/// Represents an entry in the multiboot memory map. The buffer consists of one or more of the
+/// following size/structure pairs (`size` is really just used for skipping to the next pair):
+///
+/// ```text
+///         +-------------------+  <-- Start of struct MemoryMapEntry
+/// -4      | size              |
+///         +-------------------+  <-- `size` is from here to next entry
+/// 0       | base_addr         |
+/// 8       | length            |
+/// 16      | type              |
+///         +-------------------+  <-- End of struct MemoryMapEntry
+/// ```
+///
+/// where `size` is the size of the associated structure in bytes, which can be greater than the
+/// minimum of 20 bytes. `base_addr` is the starting address. `length` is the size of the memory
+/// region in bytes.
+#[repr(C)]
+pub struct MemoryMapEntry {
+    /// When 4 is added to `size`, the result can be used as an offset to skip to the next memory
+    /// map entry in the mmap buffer. According to the specification, this offset can be larger
+    /// than than the size of this structure (20 bytes).
+    size: u32,
+
+    /// The start address of the memory region described by this entry.
+    base_addr: u64,
+
+    /// The size in bytes of the memory region described by this entry.
+    length: u64,
+
+    /// The type of the memory described by this entry.
+    ///
+    /// * 1: "available RAM"
+    /// * 3: "usable memory holding ACPI information"
+    /// * 4: "reserved memory which needs to be preserved on hibernation"
+    /// * 5: "memory which is occupied by defective RAM modules"
+    r#type: u32,
+}
+
+impl MemoryMapEntry {
+    /// Returns the offset from the start address of this memory map entry to the next entry in the
+    /// buffer.
+    pub fn offset_to_next(&self) -> usize {
+        self.size as usize + 4
+    }
+}
+
+// Silencing `from_over_into` here because the multiboot MemoryMapEntry struct is more specific than
+// the generic MemoryChunk struct.
+#[allow(clippy::from_over_into)]
+impl Into<MemoryChunk> for &MemoryMapEntry {
+    fn into(self) -> MemoryChunk {
+        MemoryChunk {
+            base_addr: self.base_addr,
+            length: self.length,
+            kind: match self.r#type {
+                1 => MemoryChunkClass::Available,
+                _ => MemoryChunkClass::Unusable,
+            },
+        }
     }
 }
