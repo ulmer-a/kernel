@@ -51,8 +51,8 @@ unsafe extern "C" fn _multiboot_entry() {
 }
 
 #[no_mangle]
-extern "C" fn multiboot_start(magic: u32, _: *const char) -> ! {
-    use log::info;
+extern "C" fn multiboot_start(magic: u32, mb_ptr: *const multiboot::BootInfo) -> ! {
+    use log::{debug, info};
 
     // Safety: This must be done before any relevant statics are accessed.
     unsafe {
@@ -63,8 +63,22 @@ extern "C" fn multiboot_start(magic: u32, _: *const char) -> ! {
     info!("Kernel by Alexander Ulmer v{}", env!("CARGO_PKG_VERSION"));
     info!("Copyright 2017-2024");
 
-    // Check the magic value to make sure that indeed we should use the `multiboot` protocol.
+    // Check information structure pointer as well as the magic value to make sure that indeed we
+    // should use the `multiboot` protocol.
+    assert!(!mb_ptr.is_null(), "Checking multiboot pointer");
     assert_eq!(magic, 0x2badb002, "Checking multiboot magic value");
+    debug!("Valid `multiboot` signature found: struct @ {:?}", mb_ptr);
+
+    let multiboot = unsafe { &*mb_ptr };
+
+    // Print command line to kernel log
+    info!(
+        "Command line: {}",
+        match multiboot.command_line() {
+            Some(cmdline) => cmdline.to_str().unwrap_or("invalid (non-utf-8)"),
+            None => "none",
+        },
+    );
 
     // TODO Implement the rest of the boot process here.
     crate::arch::halt_core();
