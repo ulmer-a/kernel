@@ -1,7 +1,8 @@
 # Ulmer Kernel
 
 This repository contains my homebrew Rust OS kernel. While I plan to run this on my Pentium III PC
-PC, I am still trying to make this as portable as possible so that I can eventually support more processor architectures and platforms in the future.
+PC, I am still trying to make this as portable as possible so that I can eventually support more
+processor architectures and platforms in the future.
 
 ## Building
 
