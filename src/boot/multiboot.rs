@@ -97,7 +97,7 @@ pub struct BootInfo {
     /// were loaded along with the kernel image, and where they can be found. `mods_addr` contains
     /// the physical address of the first module structure. For details each module's structure see
     /// the [Module] structure.
-    mods_addr: *const core::ffi::c_void,
+    mods_addr: *const _Module,
 
     _unused: [u32; 4],
 
@@ -117,11 +117,21 @@ pub struct BootInfo {
 }
 
 impl BootInfo {
-    /// Returns the kernel command line if it has been passed along by the bootloader.
+    /// Returns the kernel command line if one has been passed along by the bootloader.
     pub fn command_line(&self) -> Option<&core::ffi::CStr> {
         const COMMAND_LINE_PRESENT: u32 = 1 << 2;
         if self.flags & COMMAND_LINE_PRESENT != 0 && !self.cmdline.is_null() {
             Some(unsafe { core::ffi::CStr::from_ptr(self.cmdline) })
+        } else {
+            None
+        }
+    }
+
+    /// If present, returns a slice of modules passed on to the kernel by the bootloader.
+    pub fn _modules(&self) -> Option<&[_Module]> {
+        const MODULES_PRESENT: u32 = 1 << 3;
+        if self.flags & MODULES_PRESENT != 0 && !self.mods_addr.is_null() {
+            Some(unsafe { core::slice::from_raw_parts(self.mods_addr, self.mods_count) })
         } else {
             None
         }
@@ -143,6 +153,23 @@ impl BootInfo {
             None
         }
     }
+}
+
+/// An entry in the bootloader-provided module list.
+#[repr(C)]
+pub struct _Module {
+    /// Start address of the module.
+    mod_start: u32,
+
+    /// End address of the module.
+    mod_end: u32,
+
+    /// The `string` field provides an arbitrary zero-terminated ASCII string to be associated with
+    /// that particular module. It may also be null if there is no associated string.
+    string: *const core::ffi::c_char,
+
+    /// Must be ignored by the OS.
+    _reserved: u32,
 }
 
 /// Provides an iterator over the multiboot memory map.
