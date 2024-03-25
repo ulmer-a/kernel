@@ -1,5 +1,0 @@
-[[language]]
-name = "rust"
-
-[language.config]
-rust-analyzer.cargo.target = "i686-unknown-linux-gnu"
