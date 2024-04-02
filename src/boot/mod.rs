@@ -85,35 +85,14 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const multiboot::BootInfo) -> 
 
     debug!("Multiboot structure @ {:?}", mb_ptr);
 
-    // Retrieve multiboot memory map and print it to the kernel log
+    // Retrieve multiboot memory map and use it to bootstrap the memory subsystem
     let memory_map = multiboot
         .memory_map()
         .expect("Expected multiboot memory map to be present");
-    print_memory_map(memory_map.clone());
+    crate::mem::bootstrap_subsystem(memory_map);
 
     // TODO Implement the rest of the boot process here.
     crate::arch::halt_core();
-}
-
-/// Prints the bootloader-provided memory map to the kernel log.
-fn print_memory_map(memory_map: impl Iterator<Item = crate::mem::MemoryChunk>) {
-    log::info!("Bootloader-provided memory map:");
-
-    let total_bytes_available = memory_map
-        .map(|chunk| {
-            log::info!("├─ {}", chunk);
-            if chunk.is_usable() {
-                chunk.length
-            } else {
-                0
-            }
-        })
-        .sum::<u64>();
-
-    log::info!(
-        "└─ total memory available: {} MiB",
-        total_bytes_available / 1024 / 1024
-    );
 }
 
 /// Clears the entire BSS segment of the kernel image. This may corrupt kernel memory if the

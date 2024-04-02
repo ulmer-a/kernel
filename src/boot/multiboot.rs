@@ -6,7 +6,7 @@
 // Multiboot is only specified for `x86` (IA-32) architecture
 #![cfg(target_arch = "x86")]
 
-use crate::mem::{MemoryChunk, MemoryChunkClass};
+use crate::mem::physical::{MemoryChunk, MemoryChunkClass};
 
 /// The multiboot header must be present in the first 8KB of every multiboot-compliant kernel image.
 /// It is used to indicate to the bootloader which features and information the kernel requires.
@@ -145,8 +145,9 @@ impl BootInfo {
         const MEMORY_MAP_PRESENT: u32 = 1 << 6;
         if self.flags & MEMORY_MAP_PRESENT != 0 && !self.mmap.is_null() {
             Some(MemoryMap {
-                // Safety: We just checked that the memory map is present and the pointer to its
-                // memory is non-null.
+                // SAFETY: We just checked that the memory map is present and the pointer to its
+                // memory is non-null. Also, we explicitly make sure that the lifetime of the
+                // resulting reference is tied to the lifetime of the BootInfo struct.
                 buffer: unsafe { slice::from_raw_parts::<'mb>(self.mmap, self.mmap_length) },
             })
         } else {
@@ -175,7 +176,7 @@ pub struct _Module {
 /// Provides an iterator over the multiboot memory map.
 #[derive(Clone)]
 struct MemoryMap<'mb> {
-    /// Reference to the buffer from [BootInfo] that contains all the memory map entries.
+    /// Reference to the buffer from [`BootInfo`] that contains all the memory map entries.
     buffer: &'mb [u8],
 }
 
