@@ -16,6 +16,7 @@ mod multiboot;
 /// More details: [multiboot::Header]
 #[used]
 #[link_section = ".multiboot"]
+#[cfg(target_arch = "x86")]
 static MULTIBOOT_HEADER: multiboot::Header = multiboot::Header::new()
     .request_aligned_modules()
     .request_memory_map();
@@ -41,6 +42,7 @@ const BOOT_STACK_BASE: usize = 0x8_0000;
 ///    arguments.
 #[naked]
 #[no_mangle]
+#[cfg(target_arch = "x86")]
 unsafe extern "C" fn multiboot_start() {
     // Exact machine state at this point is defined by the multiboot specification.
     // * `eax`: Must contain magic value `0x2BADB002`.
@@ -65,6 +67,7 @@ unsafe extern "C" fn multiboot_start() {
 /// 3. Initialize the memory subsystem based on the memory map provided by the bootloader via the
 ///    multiboot information structure.
 #[no_mangle]
+#[cfg(target_arch = "x86")]
 extern "C" fn multiboot_main(magic: u32, mb_ptr: *const multiboot::BootInfo) -> ! {
     use log::{debug, info};
 
