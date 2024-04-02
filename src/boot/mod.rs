@@ -1,11 +1,17 @@
-//! Kernel entry point and boot protocol implementation(s). Usually, the bootloader (e.g. GRUB)
-//! loads the kernel into memory and jumps to it. The boot protocol (e.g. multiboot) defines the
-//! machine state at that point and any other information that the bootloader passes to the kernel.
+//! ## Boot procedure implementation
+//!
+//! A dedicated bootloader (e.g. GRUB) must be used to load the kernel image into memory and pass
+//! control to it. The bootloader must also provide the kernel with information about the machine
+//! and its configuration (e.g. memory map, command line arguments, etc.). The modalities of these
+//! tasks are defined by the boot protocol. On the x86-32 architecture, this kernel uses the
+//! `multiboot` boot protocol. Please check the specification for details on how it works.
 
 mod multiboot;
 
-/// Instance of the multiboot header in static memory. It is placed in the `.multiboot` section of
-/// the binary so that it can be linked into the first 8K of the binary via the linker script.
+/// Instance of the multiboot header in static memory. It is used to tell the bootloader which
+/// features the kernel requires from it. The header is placed in the `.multiboot` section of the
+/// the binary so that it can be linked into the first 8K of the binary as this is required by the
+/// specification.
 ///
 /// More details: [multiboot::Header]
 #[used]
@@ -14,64 +20,97 @@ static MULTIBOOT_HEADER: multiboot::Header = multiboot::Header::new()
     .request_aligned_modules()
     .request_memory_map();
 
-/// The base address of the boot stack. The stack grows downwards from this address.
+/// The top address of the boot stack. The stack grows downwards from this address.
 const BOOT_STACK_BASE: usize = 0x8_0000;
 
-/// Entry point into the kernel in case the `multiboot` boot protocol is being used. This will
-/// prepare the processor to run Rust code before it jumps to the [`multiboot_start()`] function.
+/// The entry point is the first code that gets executed once the bootloader passes control to the
+/// kernel. There are multiple way to tell the bootloader about its location. Currently, we don't
+/// enable any special fields in the [`MULTIBOOT_HEADER`] so the bootloader will just jump to the
+/// address specificed in the entry point field of the the ELF file. For this to work, the linker
+/// script needs to be written in a way that the address of the [`_multiboot_entry()`] function
+/// actually ends up in the entry point field of the ELF file.
+///
+/// Before jumping to the [`multiboot_main()`] function, this function will perform the following
+/// tasks:
+///
+/// 1. Setup a stack by loading the `esp` register with the top address of the kernel stack.
+/// 2. Save the pointer to the multiboot information structure found in the `ebx` register.
+/// 3. Save the multiboot magic value found in the `eax` register.
+/// 4. Call the [`clear_bss()`] function.
+/// 5. Call the [`multiboot_main()`] function while passing both of the previously saved values as
+///    arguments.
 #[naked]
 #[no_mangle]
-unsafe extern "C" fn _multiboot_entry() {
+unsafe extern "C" fn multiboot_start() {
     // Exact machine state at this point is defined by the multiboot specification.
     // * `eax`: Must contain magic value `0x2BADB002`.
     // * `ebx`: Contains the physical address of the multiboot information structure.
     // * `esp`: Stack pointer is in an undefined state. We must load our own.
     core::arch::asm!(
         "mov ${stack_ptr}, %esp",
-        "push %ebx", // 2nd argument to `multiboot_start()`
-        "push %eax", // 1st argument to `multiboot_start()`
+        "push %ebx",
+        "push %eax",
         "call clear_bss",
-        "call multiboot_start",
+        "call multiboot_main",
         stack_ptr = const { BOOT_STACK_BASE },
         options(att_syntax, noreturn)
     );
 }
 
-/// Rust entry point into the kernel after a stack has been setup.
+/// Coming from [`multiboot_start()`], this is the first true Rust code that gets executed after
+/// the bootloader passes control to the kernel. Its tasks are:
+///
+/// 1. Initialize the kernel log.
+/// 2. Verify the multiboot magic value and information structure pointer.
+/// 3. Initialize the memory subsystem based on the memory map provided by the bootloader via the
+///    multiboot information structure.
 #[no_mangle]
-extern "C" fn multiboot_start(magic: u32, mb_ptr: *const multiboot::BootInfo) -> ! {
+extern "C" fn multiboot_main(magic: u32, mb_ptr: *const multiboot::BootInfo) -> ! {
     use log::{debug, info};
 
     crate::logging::initialize_kernel_log();
     info!("Kernel by Alexander Ulmer v{}", env!("CARGO_PKG_VERSION"));
     info!("Copyright 2017-2024");
 
-    // Check information structure pointer as well as the magic value to make sure that indeed we
-    // should use the `multiboot` protocol.
-    assert!(!mb_ptr.is_null(), "Checking multiboot pointer");
-    assert_eq!(magic, 0x2badb002, "Checking multiboot magic value");
-    debug!("Valid `multiboot` signature found: struct @ {:?}", mb_ptr);
+    // Check multiboot magic value and try to dereference pointer to information structure
+    assert_eq!(magic, 0x2badb002, "Multiboot magic value mismatch");
+    let multiboot = unsafe {
+        mb_ptr
+            .as_ref()
+            .expect("Multiboot information structure pointer should be non-null")
+    };
 
-    let multiboot = unsafe { &*mb_ptr };
+    debug!("Multiboot structure @ {:?}", mb_ptr);
 
-    // Print command line to kernel log
-    info!(
-        "Command line: {}",
-        match multiboot.command_line() {
-            Some(cmdline) => cmdline.to_str().unwrap_or("invalid (non-utf-8)"),
-            None => "none",
-        },
-    );
-
-    // Print memory map to kernel log
-    debug!("Memory map:");
-    for mem_chunk in multiboot.memory_map().expect("Ain't got no mmmap") {
-        debug!("├─ {}", mem_chunk);
-    }
-    debug!("└─ total: XXX");
+    // Retrieve multiboot memory map and print it to the kernel log
+    let memory_map = multiboot
+        .memory_map()
+        .expect("Expected multiboot memory map to be present");
+    print_memory_map(memory_map.clone());
 
     // TODO Implement the rest of the boot process here.
     crate::arch::halt_core();
+}
+
+/// Prints the bootloader-provided memory map to the kernel log.
+fn print_memory_map(memory_map: impl Iterator<Item = crate::mem::MemoryChunk>) {
+    log::info!("Bootloader-provided memory map:");
+
+    let total_bytes_available = memory_map
+        .map(|chunk| {
+            log::info!("├─ {}", chunk);
+            if chunk.is_usable() {
+                chunk.length
+            } else {
+                0
+            }
+        })
+        .sum::<u64>();
+
+    log::info!(
+        "└─ total memory available: {} MiB",
+        total_bytes_available / 1024 / 1024
+    );
 }
 
 /// Clears the entire BSS segment of the kernel image. This may corrupt kernel memory if the
@@ -80,6 +119,8 @@ extern "C" fn multiboot_start(magic: u32, mb_ptr: *const multiboot::BootInfo) ->
 /// well-aligned addresses.
 #[no_mangle]
 unsafe extern "C" fn clear_bss() {
+    use core::{ops::Range, slice};
+
     // Symbols defined by linker script:
     extern "C" {
         /// Start address of the BSS segment.
@@ -90,7 +131,7 @@ unsafe extern "C" fn clear_bss() {
     }
 
     unsafe {
-        core::slice::from_mut_ptr_range(core::ops::Range {
+        slice::from_mut_ptr_range(Range {
             start: (&__bss_start as *const u8).cast_mut(),
             end: (&__bss_end as *const u8).cast_mut(),
         })

@@ -118,7 +118,7 @@ pub struct BootInfo {
 
 impl BootInfo {
     /// Returns the kernel command line if one has been passed along by the bootloader.
-    pub fn command_line(&self) -> Option<&core::ffi::CStr> {
+    pub fn _command_line(&self) -> Option<&core::ffi::CStr> {
         const COMMAND_LINE_PRESENT: u32 = 1 << 2;
         if self.flags & COMMAND_LINE_PRESENT != 0 && !self.cmdline.is_null() {
             Some(unsafe { core::ffi::CStr::from_ptr(self.cmdline) })
@@ -139,7 +139,7 @@ impl BootInfo {
 
     /// This function returns an iterator that can be used to traverse the memory map passed on to
     /// the kernel by the bootloader or `None` if there is no memory map present.
-    pub fn memory_map<'mb>(&'mb self) -> Option<impl Iterator<Item = MemoryChunk> + 'mb> {
+    pub fn memory_map<'mb>(&'mb self) -> Option<impl Iterator<Item = MemoryChunk> + Clone + 'mb> {
         use core::slice;
 
         const MEMORY_MAP_PRESENT: u32 = 1 << 6;

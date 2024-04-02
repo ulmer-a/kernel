@@ -5,13 +5,19 @@ pub struct MemoryChunk {
     pub kind: MemoryChunkClass,
 }
 
+impl MemoryChunk {
+    pub fn is_usable(&self) -> bool {
+        self.kind == MemoryChunkClass::Available
+    }
+}
+
 impl core::fmt::Display for MemoryChunk {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "@ 0x{:x} ({})", self.base_addr, self.kind)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MemoryChunkClass {
     Available,
     Unusable,

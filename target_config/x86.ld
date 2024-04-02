@@ -1,5 +1,5 @@
 OUTPUT_ARCH("i686")
-ENTRY(_multiboot_entry)
+ENTRY(multiboot_start)
 
 PROVIDE(__stack_top = 0x80000);
 
