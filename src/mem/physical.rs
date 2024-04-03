@@ -1,4 +1,5 @@
 use core::cmp::{max, min};
+use core::fmt::{Display, Formatter, Result};
 
 struct _PhysicalMemory {
     /// Buddy allocator for contiguous ranges of physical page frames below 16 MiB. Used to
@@ -19,7 +20,7 @@ struct _PhysicalMemory {
 pub struct MemoryChunk {
     pub base_addr: u64,
     pub length: u64,
-    pub kind: MemoryChunkClass,
+    pub class: MemoryChunkClass,
 }
 
 impl MemoryChunk {
@@ -72,13 +73,20 @@ impl MemoryChunk {
     }
 
     pub fn is_usable(&self) -> bool {
-        self.kind == MemoryChunkClass::Available
+        self.class == MemoryChunkClass::Available
     }
 }
 
 impl core::fmt::Display for MemoryChunk {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "@ 0x{:x} ({})", self.base_addr, self.kind)
+        use crate::mem::ByteLength;
+        write!(
+            f,
+            "@ 0x{:x}: {} ({})",
+            self.base_addr,
+            self.length.fmt_as_bytes(),
+            self.class
+        )
     }
 }
 
@@ -89,8 +97,8 @@ pub enum MemoryChunkClass {
     Reclaimable,
 }
 
-impl core::fmt::Display for MemoryChunkClass {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl Display for MemoryChunkClass {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str(match self {
             MemoryChunkClass::Available => "usable",
             MemoryChunkClass::Unusable => "reserved",

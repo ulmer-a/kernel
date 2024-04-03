@@ -251,7 +251,7 @@ impl Into<MemoryChunk> for &MemoryMapEntry {
         MemoryChunk {
             base_addr: self.base_addr,
             length: self.length,
-            kind: match self.r#type {
+            class: match self.r#type {
                 1 => MemoryChunkClass::Available,
                 _ => MemoryChunkClass::Unusable,
             },
