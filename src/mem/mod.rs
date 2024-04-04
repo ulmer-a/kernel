@@ -1,4 +1,13 @@
 //! Memory management
+//!
+//! This module needs to provide the kernel with the abilities to manage and allocate phyiscal and
+//! virtual memory. Requirements include but are not limited to:
+//!
+//! * Allocating single physical page frames
+//! * Allocating kernel heap memory (in various sizes and alignments)
+//! * Allocating sets of contiguous physical page frames below 16MB (for ISA DMA) or below 4GB (for
+//!   PCI busmastering DMA)
+//! * Translating virtual to physical addresses
 
 use core::fmt::{Display, Formatter, Result};
 
