@@ -84,6 +84,7 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const multiboot::BootInfo) -> 
     };
 
     debug!("Multiboot structure @ {:?}", mb_ptr);
+    debug!("Multiboot dump: {:?}", multiboot);
 
     // Retrieve multiboot memory map and use it to bootstrap the memory subsystem
     let memory_map = multiboot

@@ -60,7 +60,8 @@ impl Header {
 
 /// When the bootloader (e.g. GRUB) transfers control to the kernel, an instance of this struct is
 /// passed along to the kernel. It contains information vital to the kernel startup procedure.
-#[repr(C, packed)]
+#[repr(C)]
+#[derive(Debug)]
 pub struct BootInfo {
     /// Indicates the presence and validity of other fields in the Multiboot information structure.
     /// Any set bits that the operating system does not understand should be ignored.
@@ -116,11 +117,21 @@ pub struct BootInfo {
     // ...
 }
 
+pub trait BitfieldExt {
+    /// Check whether a specific bit is set
+    fn is_nth_bit_set(&self, bit: usize) -> bool;
+}
+
+impl BitfieldExt for u32 {
+    fn is_nth_bit_set(&self, bit: usize) -> bool {
+        *self & (bit << 1) as u32 != 0
+    }
+}
+
 impl BootInfo {
     /// Returns the kernel command line if one has been passed along by the bootloader.
     pub fn _command_line(&self) -> Option<&core::ffi::CStr> {
-        const COMMAND_LINE_PRESENT: u32 = 1 << 2;
-        if self.flags & COMMAND_LINE_PRESENT != 0 && !self.cmdline.is_null() {
+        if self.flags.is_nth_bit_set(2) && !self.cmdline.is_null() {
             Some(unsafe { core::ffi::CStr::from_ptr(self.cmdline) })
         } else {
             None
@@ -129,8 +140,7 @@ impl BootInfo {
 
     /// If present, returns a slice of modules passed on to the kernel by the bootloader.
     pub fn _modules(&self) -> Option<&[_Module]> {
-        const MODULES_PRESENT: u32 = 1 << 3;
-        if self.flags & MODULES_PRESENT != 0 && !self.mods_addr.is_null() {
+        if self.flags.is_nth_bit_set(3) & !self.mods_addr.is_null() {
             Some(unsafe { core::slice::from_raw_parts(self.mods_addr, self.mods_count) })
         } else {
             None
@@ -142,8 +152,7 @@ impl BootInfo {
     pub fn memory_map<'mb>(&'mb self) -> Option<impl Iterator<Item = MemoryChunk> + Clone + 'mb> {
         use core::slice;
 
-        const MEMORY_MAP_PRESENT: u32 = 1 << 6;
-        if self.flags & MEMORY_MAP_PRESENT != 0 && !self.mmap.is_null() {
+        if self.flags.is_nth_bit_set(6) && !self.mmap.is_null() {
             Some(MemoryMap {
                 // SAFETY: We just checked that the memory map is present and the pointer to its
                 // memory is non-null. Also, we explicitly make sure that the lifetime of the
