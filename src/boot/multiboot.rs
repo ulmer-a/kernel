@@ -17,43 +17,39 @@ pub struct Header {
     checksum: u32,
 }
 
-impl Header {
-    /// Construct a basic valid multiboot header with none of the request flags enabled. Use the
-    /// builder methods to enable specific features.
+pub struct HeaderBuilder {
+    flags: u32,
+}
+
+/// Construct a basic valid multiboot header with none of the request flags enabled. Use the
+/// builder methods to enable specific features.
+impl HeaderBuilder {
     pub const fn new() -> Self {
-        Self {
-            magic: 0x1bad_b002,
-            flags: 0,
-            checksum: 0,
-        }
-        .with_checksum()
+        Self { flags: 0 }
     }
 
     /// Requests that any modules loaded by the bootloader be aligned on page boundaries (4K).
     pub const fn request_aligned_modules(self) -> Self {
         Self {
             flags: self.flags | 1,
-            ..self
         }
-        .with_checksum()
     }
 
     /// Requests a memory map from the bootloader by setting the corresponding header flag.
     pub const fn request_memory_map(self) -> Self {
         Self {
             flags: self.flags | 2,
-            ..self
         }
-        .with_checksum()
     }
 
-    /// Computes the header checksum which needs to be correct in order to form a valid multiboot
-    /// header structure recognized by bootloaders. The `magic` and `flags` and `checksum` fields
-    /// must have an unsigned sum of zero.
-    const fn with_checksum(self) -> Self {
-        Self {
-            checksum: !(self.magic + self.flags) + 1,
-            ..self
+    /// Build a valid multiboot header using the selected flags and compute the header checksum.
+    pub const fn build(self) -> Header {
+        const HEADER_MAGIC: u32 = 0x1bad_b002;
+        // The `magic`, `flags` and `checksum` fields must have an unsigned sum of zero.
+        Header {
+            magic: HEADER_MAGIC,
+            flags: self.flags,
+            checksum: !HEADER_MAGIC.wrapping_add(self.flags) + 1,
         }
     }
 }

@@ -8,18 +8,16 @@
 
 mod multiboot;
 
-/// Instance of the multiboot header in static memory. It is used to tell the bootloader which
-/// features the kernel requires from it. The header is placed in the `.multiboot` section of the
-/// the binary so that it can be linked into the first 8K of the binary as this is required by the
-/// specification.
-///
-/// More details: [multiboot::Header]
+/// Multiboot specification requires multiboot header to be present in the first 8K of the kernel
+/// binary for the bootloader to search for. It signals to the bootloader that the kernel is
+/// multiboot-compliant. Also, the kernel can request features from the bootloader via flags.
 #[used]
 #[link_section = ".multiboot"]
 #[cfg(target_arch = "x86")]
-static MULTIBOOT_HEADER: multiboot::Header = multiboot::Header::new()
+static MULTIBOOT_HEADER: multiboot::Header = multiboot::HeaderBuilder::new()
     .request_aligned_modules()
-    .request_memory_map();
+    .request_memory_map()
+    .build();
 
 /// The top address of the boot stack. The stack grows downwards from this address.
 const BOOT_STACK_BASE: usize = 0x8_0000;
