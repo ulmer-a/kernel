@@ -48,14 +48,14 @@ unsafe extern "C" fn multiboot_start() {
     // * `eax`: Must contain magic value `0x2BADB002`.
     // * `ebx`: Contains the physical address of the multiboot information structure.
     // * `esp`: Stack pointer is in an undefined state. We must load our own.
-    core::arch::asm!(
+    core::arch::naked_asm!(
         "mov ${stack_ptr}, %esp",
         "push %ebx",
         "push %eax",
         "call clear_bss",
         "call multiboot_main",
         stack_ptr = const { BOOT_STACK_BASE },
-        options(att_syntax, noreturn)
+        options(att_syntax)
     );
 }
 
