@@ -9,18 +9,62 @@ mod header;
 mod mmap;
 mod module;
 
+use core::ops::Deref;
+
+pub use header::*;
+pub use mmap::*;
 use module::Module;
 
-pub use header::{Header, HeaderBuilder};
+#[derive(Debug, Clone)]
+pub struct BootInfo<'mb> {
+    inner: &'mb InnerBootInfo,
+}
+
+impl BootInfo<'_> {
+    /// Check multiboot magic value and try to dereference pointer to information structure.
+    ///
+    /// ### Safety
+    ///
+    /// The multiboot pointer has to be aligned, non-null and must not be mutated during the `'mb`
+    /// lifetime.
+    pub unsafe fn from_addr<'mb>(magic: u32, mb_ptr: *const core::ffi::c_void) -> BootInfo<'mb> {
+        // Check multiboot magic value and try to dereference pointer to information structure
+        let mb_ptr = mb_ptr.cast::<InnerBootInfo>();
+        assert_eq!(magic, 0x2badb002, "Multiboot magic value mismatch");
+        assert!(mb_ptr.is_aligned(), "Multiboot pointer must be aligned");
+        unsafe {
+            // Safety: Checked for alignment
+            mb_ptr
+                .as_ref::<'mb>()
+                .expect("Multiboot information structure pointer should be non-null")
+        }
+        .into()
+    }
+}
+
+impl Deref for BootInfo<'_> {
+    type Target = InnerBootInfo;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+
+impl<'mb> From<&'mb InnerBootInfo> for BootInfo<'mb> {
+    fn from(inner: &'mb InnerBootInfo) -> Self {
+        Self { inner }
+    }
+}
 
 /// When the bootloader (e.g. GRUB) transfers control to the kernel, an instance of this struct is
 /// passed along to the kernel. It contains information vital to the kernel startup procedure.
 #[repr(C)]
 #[derive(Debug)]
-pub struct BootInfo {
+pub struct InnerBootInfo {
     /// Indicates the presence and validity of other fields in the Multiboot information structure.
     /// Any set bits that the operating system does not understand should be ignored.
-    flags: u32,
+    flags: BootInfoFlags,
 
     /// If bit 0 in the `flags` word is set, then the `mem_lower` field is valid. `mem_lower`
     /// indicates the amount of lower memory available in kilobytes. Lower memory starts at
@@ -71,62 +115,34 @@ pub struct BootInfo {
     mmap: u32,
 }
 
-impl BootInfo {
-    /// ### Safety
-    ///
-    /// * Memory pointed to by multiboot pointer must not be mutated for the lifetime `'mb`.
-    pub unsafe fn from_ptr<'mb>(magic: u32, mb_ptr: *const Self) -> &'mb BootInfo {
-        // Check multiboot magic value and try to dereference pointer to information structure
-        assert_eq!(magic, 0x2badb002, "Multiboot magic value mismatch");
-        assert!(mb_ptr.is_aligned(), "Multiboot pointer must be aligned");
-        unsafe {
-            // Safety: Checked for alignment
-            mb_ptr
-                .as_ref()
-                .expect("Multiboot information structure pointer should be non-null")
-        }
-    }
-}
-
-trait BitfieldExt {
-    /// Check whether a specific bit is set
-    fn is_nth_bit_set(&self, bit: usize) -> bool;
-}
-
-impl BitfieldExt for u32 {
-    fn is_nth_bit_set(&self, bit: usize) -> bool {
-        *self & (bit << 1) as u32 != 0
-    }
-}
-
-impl BootInfo {
-    /// Returns the kernel command line if one has been passed along by the bootloader.
+impl InnerBootInfo {
+    /// Returns the kernel command line if it has been passed by the bootloader and is valid.
     pub fn command_line(&self) -> Option<&core::ffi::CStr> {
         let cmdline_ptr = self.cmdline as *const core::ffi::c_char;
-        if self.flags.is_nth_bit_set(2) && !cmdline_ptr.is_null() {
+        if self.flags.is_cmdline_valid() && !cmdline_ptr.is_null() {
             Some(unsafe { core::ffi::CStr::from_ptr(cmdline_ptr) })
         } else {
             None
         }
     }
 
-    /// If present, returns a slice of modules passed on to the kernel by the bootloader.
+    /// Returns a reference to the array of modules passed by the bootloader, if present.
     pub fn modules(&self) -> Option<&[Module]> {
         let mods_ptr = self.mods_addr as *const Module;
-        if self.flags.is_nth_bit_set(3) & !mods_ptr.is_null() {
+        if self.flags.is_modules_valid() & !mods_ptr.is_null() {
             Some(unsafe { core::slice::from_raw_parts(mods_ptr, self.mods_count as usize) })
         } else {
             None
         }
     }
 
-    /// This function returns an iterator that can be used to traverse the memory map passed on to
-    /// the kernel by the bootloader or `None` if there is no memory map present.
+    /// Returns an iterator that can be used to traverse the memory map passed by the bootloader,
+    /// or `None` if there is no memory map present.
     pub fn memory_map<'mb>(&'mb self) -> Option<mmap::MemoryMapIter<'mb>> {
         use core::slice;
 
         let mmap_ptr = self.mmap as *const u8;
-        if self.flags.is_nth_bit_set(6) && !mmap_ptr.is_null() {
+        if self.flags.is_mmap_valid() && !mmap_ptr.is_null() {
             let mmap_buffer = unsafe {
                 // SAFETY: We just checked that the memory map is present and the pointer to its
                 // memory is non-null. Also, we explicitly make sure that the lifetime of the
@@ -137,5 +153,28 @@ impl BootInfo {
         } else {
             None
         }
+    }
+}
+
+
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+struct BootInfoFlags(u32);
+
+impl BootInfoFlags {
+    fn is_nth_bit_set(&self, bit: usize) -> bool {
+        self.0 & (bit << 1) as u32 != 0
+    }
+
+    fn is_cmdline_valid(&self) -> bool {
+        self.is_nth_bit_set(2)
+    }
+
+    fn is_mmap_valid(&self) -> bool {
+        self.is_nth_bit_set(3)
+    }
+
+    fn is_modules_valid(&self) -> bool {
+        self.is_nth_bit_set(6)
     }
 }

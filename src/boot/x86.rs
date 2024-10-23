@@ -61,7 +61,7 @@ unsafe extern "C" fn multiboot_start() {
 ///    multiboot information structure.
 #[no_mangle]
 #[cfg(target_arch = "x86")]
-extern "C" fn multiboot_main(magic: u32, mb_ptr: *const BootInfo) -> ! {
+extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! {
     use log::{debug, info};
 
     crate::logging::initialize_kernel_log();
@@ -71,7 +71,7 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const BootInfo) -> ! {
     debug!("Multiboot structure @ {:?}", mb_ptr);
     let multiboot = unsafe {
         // Safety: Memory must not be mutated.
-        BootInfo::from_ptr(magic, mb_ptr)
+        BootInfo::from_addr(magic, mb_ptr)
     };
 
     debug!("Multiboot dump: {:?}", multiboot);
@@ -79,7 +79,8 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const BootInfo) -> ! {
     // Retrieve multiboot memory map and use it to bootstrap the memory subsystem
     let memory_map = multiboot
         .memory_map()
-        .expect("Expected multiboot memory map to be present");
+        .expect("Expected multiboot memory map to be present")
+        .map(|mb_region| mb_region.into());
     crate::mem::bootstrap_subsystem(memory_map);
 
     // TODO Implement the rest of the boot process here.

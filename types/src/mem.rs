@@ -10,6 +10,16 @@ pub struct MemoryChunk {
     pub class: MemoryChunkClass,
 }
 
+impl From<multiboot::MemoryRegion> for MemoryChunk {
+    fn from(value: multiboot::MemoryRegion) -> Self {
+        Self {
+            base_addr: value.base_addr,
+            length: value.length,
+            class: value.kind.into(),
+        }
+    }
+}
+
 impl MemoryChunk {
     pub fn crop_start(self, min_addr: u64) -> Option<Self> {
         if min_addr < self.end_addr() {
@@ -90,5 +100,16 @@ impl Display for MemoryChunkClass {
             MemoryChunkClass::Unusable => "reserved",
             MemoryChunkClass::Reclaimable => "reclaimable",
         })
+    }
+}
+
+impl From<multiboot::MemoryRegionKind> for MemoryChunkClass {
+    fn from(value: multiboot::MemoryRegionKind) -> Self {
+        use multiboot::MemoryRegionKind;
+        match value {
+            MemoryRegionKind::Available => Self::Available,
+            // ...
+            _ => Self::Unusable,
+        }
     }
 }

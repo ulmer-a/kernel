@@ -1,4 +1,4 @@
-use types::mem::{MemoryChunk, MemoryChunkClass};
+//! Module provides functionality to traverse a multiboot memory map.
 
 /// Provides an iterator over the multiboot memory map. The `'mmap` lifetime parameter describes
 /// the lifetime of the underlying memory buffer containing the memory map.
@@ -15,7 +15,7 @@ impl<'mmap> From<&'mmap [u8]> for MemoryMapIter<'mmap> {
 }
 
 impl Iterator for MemoryMapIter<'_> {
-    type Item = MemoryChunk;
+    type Item = MemoryRegion;
 
     fn next(&mut self) -> Option<Self::Item> {
         // SAFETY: We want to take a reference to the first memory map entry that is contained
@@ -28,6 +28,41 @@ impl Iterator for MemoryMapIter<'_> {
         self.buffer = &self.buffer[entry.offset_to_next()..];
         Some(entry.into())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MemoryRegion {
+    /// The start address of the memory region.
+    pub base_addr: u64,
+    /// The length of the memory region in bytes.
+    pub length: u64,
+    /// The type of the memory region.
+    pub kind: MemoryRegionKind,
+}
+
+impl From<&MemoryMapEntry> for MemoryRegion {
+    fn from(entry: &MemoryMapEntry) -> Self {
+        Self {
+            base_addr: entry.base_addr,
+            length: entry.length,
+            kind: match entry.r#type {
+                1 => MemoryRegionKind::Available,
+                3 => MemoryRegionKind::Acpi,
+                4 => MemoryRegionKind::Reserved,
+                5 => MemoryRegionKind::Defective,
+                _ => MemoryRegionKind::Unknown,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MemoryRegionKind {
+    Available,
+    Acpi,
+    Reserved,
+    Defective,
+    Unknown,
 }
 
 /// Represents an entry in the multiboot memory map. The buffer consists of one or more of the
@@ -73,21 +108,5 @@ impl MemoryMapEntry {
     /// buffer.
     pub fn offset_to_next(&self) -> usize {
         self.size as usize + 4
-    }
-}
-
-// Silencing `from_over_into` here because the multiboot MemoryMapEntry struct is more specific than
-// the generic MemoryChunk struct.
-#[allow(clippy::from_over_into)]
-impl Into<MemoryChunk> for &MemoryMapEntry {
-    fn into(self) -> MemoryChunk {
-        MemoryChunk {
-            base_addr: self.base_addr,
-            length: self.length,
-            class: match self.r#type {
-                1 => MemoryChunkClass::Available,
-                _ => MemoryChunkClass::Unusable,
-            },
-        }
     }
 }
