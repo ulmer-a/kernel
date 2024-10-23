@@ -3,6 +3,7 @@
 use physical::MemoryMap;
 
 pub mod fmt;
+pub mod paging;
 pub mod physical;
 
 /// Max size of physical memory direct mapping on 32-bit x86 (virtual address space size limit).
