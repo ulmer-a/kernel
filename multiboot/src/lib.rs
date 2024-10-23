@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), no_std)]
+
 //! This module contains the structures used to implement the multiboot boot protocol as defined in
 //! the corresponding specification:
 //!
@@ -6,7 +8,7 @@
 // Multiboot is only specified for `x86` (IA-32) architecture
 #![cfg(target_arch = "x86")]
 
-use crate::mem::physical::{MemoryChunk, MemoryChunkClass};
+use types::mem::{MemoryChunk, MemoryChunkClass};
 
 /// The multiboot header must be present in the first 8KB of every multiboot-compliant kernel image.
 /// It is used to indicate to the bootloader which features and information the kernel requires.
@@ -17,6 +19,7 @@ pub struct Header {
     checksum: u32,
 }
 
+#[derive(Debug, Default)]
 pub struct HeaderBuilder {
     flags: u32,
 }
@@ -24,6 +27,9 @@ pub struct HeaderBuilder {
 /// Construct a basic valid multiboot header with none of the request flags enabled. Use the
 /// builder methods to enable specific features.
 impl HeaderBuilder {
+    /// Create a new header builder with default flags. This could be replaced with
+    /// Default::default() if it was const. But it isn't so plase use new() if you want a const
+    /// object.
     pub const fn new() -> Self {
         Self { flags: 0 }
     }
@@ -111,6 +117,23 @@ pub struct BootInfo {
     /// use.
     mmap: *const u8,
     // ...
+}
+
+impl BootInfo {
+    /// ### Safety
+    ///
+    /// * Memory pointed to by multiboot pointer must not be mutated for the lifetime `'mb`.
+    pub unsafe fn from_ptr<'mb>(magic: u32, mb_ptr: *const Self) -> &'mb BootInfo {
+        // Check multiboot magic value and try to dereference pointer to information structure
+        assert_eq!(magic, 0x2badb002, "Multiboot magic value mismatch");
+        assert!(mb_ptr.is_aligned(), "Multiboot pointer must be aligned");
+        unsafe {
+            // Safety: Checked for alignment
+            mb_ptr
+                .as_ref()
+                .expect("Multiboot information structure pointer should be non-null")
+        }
+    }
 }
 
 pub trait BitfieldExt {

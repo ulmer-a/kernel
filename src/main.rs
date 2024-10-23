@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![no_main]
 #![feature(naked_functions)] // boot::_multiboot_entry()
 #![feature(slice_from_ptr_range)] // mem::bss()

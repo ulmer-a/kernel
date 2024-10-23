@@ -27,3 +27,12 @@ impl<T> Display for Fmt<T> {
         }
     }
 }
+
+// #[cfg(test)]
+// mod test {
+//     use super::Fmt;
+
+//     fn fmt_test() {
+//         assert_eq!(format!("{}", Fmt::from(4823)), "4823 B");
+//     }
+// }

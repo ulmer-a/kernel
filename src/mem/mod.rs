@@ -2,7 +2,6 @@
 
 use physical::MemoryMap;
 
-pub mod fmt;
 pub mod paging;
 pub mod physical;
 

@@ -1,3 +1,6 @@
+[workspace]
+members = ["types", "multiboot"]
+
 [package]
 name = "kernel"
 version = "0.1.0"
@@ -8,3 +11,5 @@ authors = [ "Alexander Ulmer <alexander.ulmer@gurdinet.at>" ]
 
 [dependencies]
 log = "0.4.21"
+multiboot = { version = "0.1.0", path = "./multiboot" }
+types = { version = "0.1.0", path = "./types" }
