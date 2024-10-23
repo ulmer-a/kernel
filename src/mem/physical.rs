@@ -1,6 +1,8 @@
 use core::cmp::{max, min};
 use core::fmt::{Display, Formatter, Result};
 
+use crate::mem::fmt::Fmt;
+
 struct _PhysicalMemory {
     /// Buddy allocator for contiguous ranges of physical page frames below 16 MiB. Used to
     /// allocate ISA DMA buffers.
@@ -79,12 +81,11 @@ impl MemoryChunk {
 
 impl core::fmt::Display for MemoryChunk {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        use crate::mem::ByteLength;
         write!(
             f,
             "@ 0x{:x}: {} ({})",
             self.base_addr,
-            self.length.fmt_as_bytes(),
+            Fmt::<u64>::from(self.length),
             self.class
         )
     }
@@ -104,5 +105,54 @@ impl Display for MemoryChunkClass {
             MemoryChunkClass::Unusable => "reserved",
             MemoryChunkClass::Reclaimable => "reclaimable",
         })
+    }
+}
+
+pub trait MemoryMap: Iterator<Item = MemoryChunk> + Clone {
+    fn fmt(&self) -> MemoryMapFmt<Self> {
+        MemoryMapFmt { iter: self.clone() }
+    }
+
+    fn filter_usable(&self) -> impl Iterator<Item = MemoryChunk> {
+        self.clone().filter(|chunk| chunk.is_usable())
+    }
+}
+
+impl<T> MemoryMap for T where T: Iterator<Item = MemoryChunk> + Clone {}
+
+#[derive(Clone)]
+pub struct MemoryMapFmt<I> {
+    iter: I,
+}
+
+
+impl<T: Iterator> Iterator for MemoryMapFmt<T> {
+    type Item = T::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<T: Iterator<Item = MemoryChunk> + Clone> Display for MemoryMapFmt<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let total_bytes_available = self
+            .clone()
+            .map(|chunk| {
+                writeln!(f, "├─ {}", chunk).unwrap();
+
+                if chunk.is_usable() {
+                    chunk.length
+                } else {
+                    0
+                }
+            })
+            .sum::<u64>();
+
+        writeln!(
+            f,
+            "└─ total memory available: {}",
+            Fmt::<u64>::from(total_bytes_available)
+        )
     }
 }
