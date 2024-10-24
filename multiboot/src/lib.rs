@@ -9,8 +9,6 @@ mod header;
 mod mmap;
 mod module;
 
-use core::ops::Deref;
-
 pub use header::*;
 pub use mmap::*;
 use module::Module;
@@ -42,7 +40,7 @@ impl BootInfo<'_> {
     }
 }
 
-impl Deref for BootInfo<'_> {
+impl core::ops::Deref for BootInfo<'_> {
     type Target = InnerBootInfo;
 
     fn deref(&self) -> &Self::Target {

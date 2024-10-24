@@ -15,6 +15,7 @@ const BOOT_STACK_BASE: usize = 0x8_0000;
 static MULTIBOOT_HEADER: multiboot::Header = multiboot::HeaderBuilder::new()
     .request_aligned_modules()
     .request_memory_map()
+    .request_default_framebuffer()
     .build();
 
 /// The entry point is the first code that gets executed once the bootloader passes control to the
