@@ -69,13 +69,17 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! 
     info!("Kernel by Alexander Ulmer v{}", env!("CARGO_PKG_VERSION"));
     info!("Copyright 2017-2024");
 
-    debug!("Multiboot structure @ {:?}", mb_ptr);
     let multiboot = unsafe {
         // Safety: Memory must not be mutated.
         BootInfo::from_addr(magic, mb_ptr)
     };
 
-    debug!("Multiboot dump: {:?}", multiboot);
+    // Dump entire multiboot structure when in debug mode
+    #[cfg(debug_assertions)]
+    debug!(
+        "Bootloader-provided struct @ {:?}: {:#?}",
+        mb_ptr, multiboot
+    );
 
     // Retrieve multiboot memory map and use it to bootstrap the memory subsystem
     let memory_map = multiboot

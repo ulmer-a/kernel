@@ -13,7 +13,7 @@ pub use header::*;
 pub use mmap::*;
 use module::Module;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BootInfo<'mb> {
     inner: &'mb InnerBootInfo,
 }
@@ -40,6 +40,12 @@ impl BootInfo<'_> {
     }
 }
 
+impl<'mb> From<&'mb InnerBootInfo> for BootInfo<'mb> {
+    fn from(inner: &'mb InnerBootInfo) -> Self {
+        Self { inner }
+    }
+}
+
 impl core::ops::Deref for BootInfo<'_> {
     type Target = InnerBootInfo;
 
@@ -48,10 +54,15 @@ impl core::ops::Deref for BootInfo<'_> {
     }
 }
 
-
-impl<'mb> From<&'mb InnerBootInfo> for BootInfo<'mb> {
-    fn from(inner: &'mb InnerBootInfo) -> Self {
-        Self { inner }
+impl core::fmt::Debug for BootInfo<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Multiboot")
+            .field("flags", &self.inner.flags)
+            // .field("low_mem", &self.inner.mem_lower)
+            // .field("high_mem", &self.inner.mem_upper)
+            .field("cmdline", &self.inner.command_line())
+            .field("mmap", &self.memory_map())
+            .finish_non_exhaustive()
     }
 }
 
@@ -154,14 +165,31 @@ impl InnerBootInfo {
     }
 }
 
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[repr(transparent)]
 struct BootInfoFlags(u32);
 
 impl BootInfoFlags {
+    const fn bits() -> &'static [(&'static str, usize)] {
+        &[
+            ("MEM", 0),
+            ("BOOTDEV", 1),
+            ("CMDLINE", 2),
+            ("MODS", 3),
+            ("SYMBOLS", 4),
+            ("ELFSHT", 5),
+            ("MMAP", 6),
+            ("DRV", 7),
+            ("CFG", 8),
+            ("BLDR", 9),
+            ("APM", 10),
+            ("VBE", 11),
+            ("FBR", 12),
+        ]
+    }
+
     fn is_nth_bit_set(&self, bit: usize) -> bool {
-        self.0 & (bit << 1) as u32 != 0
+        self.0 & (1 << bit) as u32 != 0
     }
 
     fn is_cmdline_valid(&self) -> bool {
@@ -174,5 +202,18 @@ impl BootInfoFlags {
 
     fn is_modules_valid(&self) -> bool {
         self.is_nth_bit_set(6)
+    }
+}
+
+impl core::fmt::Debug for BootInfoFlags {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{{ ")?;
+        for flag_set in Self::bits()
+            .iter()
+            .filter_map(|(name, bit)| self.is_nth_bit_set(*bit).then_some(name))
+        {
+            write!(f, "{flag_set}, ")?;
+        }
+        write!(f, ".. }}")
     }
 }

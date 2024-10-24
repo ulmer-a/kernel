@@ -30,7 +30,13 @@ impl Iterator for MemoryMapIter<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+impl core::fmt::Debug for MemoryMapIter<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list().entries(self.clone()).finish()
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
 pub struct MemoryRegion {
     /// The start address of the memory region.
     pub base_addr: u64,
@@ -53,6 +59,18 @@ impl From<&MemoryMapEntry> for MemoryRegion {
                 _ => MemoryRegionKind::Unknown,
             },
         }
+    }
+}
+
+impl core::fmt::Debug for MemoryRegion {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{:?} @ {:?} ({:?} KiB)",
+            self.kind,
+            self.base_addr as *const u8,
+            self.length >> 10,
+        )
     }
 }
 
