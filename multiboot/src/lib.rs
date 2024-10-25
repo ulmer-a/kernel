@@ -7,10 +7,9 @@
 
 pub mod header;
 pub mod mmap;
-mod module;
+pub mod module;
 
-/// The kernel-facing abstraction to the Multiboot information structure as implemented by
-/// [`InnerMultiboot`].
+/// The kernel-facing abstraction to the Multiboot information structure.
 #[derive(Clone)]
 pub struct Multiboot<'mb> {
     inner: &'mb InnerMultiboot,
@@ -36,19 +35,27 @@ impl Multiboot<'_> {
         }
         .into()
     }
+
+    /// Returns the kernel command line if it has been passed by the bootloader and is valid.
+    pub fn command_line(&self) -> Option<&str> {
+        self.inner.command_line().map(|c_str| c_str.to_str())?.ok()
+    }
+
+    /// Returns an iterator that can be used to traverse the memory map passed by the bootloader,
+    /// or `None` if there is no memory map present.
+    pub fn memory_map(&self) -> Option<mmap::MemoryMapIter> {
+        self.inner.memory_map()
+    }
+
+    /// Returns a reference to the array of modules passed by the bootloader, if present.
+    pub fn modules(&self) -> Option<&[module::Module]> {
+        self.inner.modules()
+    }
 }
 
 impl<'mb> From<&'mb InnerMultiboot> for Multiboot<'mb> {
     fn from(inner: &'mb InnerMultiboot) -> Self {
         Self { inner }
-    }
-}
-
-impl core::ops::Deref for Multiboot<'_> {
-    type Target = InnerMultiboot;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner
     }
 }
 
@@ -68,7 +75,7 @@ impl core::fmt::Debug for Multiboot<'_> {
 /// passed along to the kernel. It contains information vital to the kernel startup procedure.
 #[repr(C)]
 #[derive(Debug)]
-pub struct InnerMultiboot {
+struct InnerMultiboot {
     /// Indicates the presence and validity of other fields in the Multiboot information structure.
     /// Any set bits that the operating system does not understand should be ignored.
     flags: Flags,
