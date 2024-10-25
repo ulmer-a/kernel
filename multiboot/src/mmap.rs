@@ -52,13 +52,7 @@ impl From<&MemoryMapEntry> for MemoryRegion {
         Self {
             base_addr: entry.base_addr,
             length: entry.length,
-            kind: match entry.r#type {
-                1 => MemoryRegionKind::Available,
-                3 => MemoryRegionKind::Acpi,
-                4 => MemoryRegionKind::Reserved,
-                5 => MemoryRegionKind::Defective,
-                _ => MemoryRegionKind::Unknown,
-            },
+            kind: entry.r#type.into(),
         }
     }
 }
@@ -84,6 +78,18 @@ pub enum MemoryRegionKind {
     Reserved,
     Defective,
     Unknown,
+}
+
+impl From<u32> for MemoryRegionKind {
+    fn from(value: u32) -> Self {
+        match value {
+            1 => MemoryRegionKind::Available,
+            3 => MemoryRegionKind::Acpi,
+            4 => MemoryRegionKind::Reserved,
+            5 => MemoryRegionKind::Defective,
+            _ => MemoryRegionKind::Unknown,
+        }
+    }
 }
 
 /// Represents an entry in the multiboot memory map. The buffer consists of one or more of the
@@ -125,8 +131,8 @@ struct MemoryMapEntry {
 }
 
 impl MemoryMapEntry {
-    /// Returns the offset from the start address of this memory map entry to the next entry in the
-    /// buffer.
+    /// Returns the offset from the start address of this memory map entry to the start address of
+    /// the next entry in the buffer.
     pub fn offset_to_next(&self) -> usize {
         self.size as usize + 4
     }

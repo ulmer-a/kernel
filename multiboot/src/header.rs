@@ -1,6 +1,8 @@
 //! Every multiboot-compliant kernel needs to have the multiboot header structure within the first
-//! 8K of its binary. It is recommended to link it into a custom section of the binary (e.g.
-//! `.multiboot`) to make sure that it will actually end up in the first 8K.
+//! 8K of its binary. It is used to request features from the bootloader
+//!
+//! It is recommended to link it into a custom section of the binary (e.g. `.multiboot`) to make
+//! sure that it will actually end up in the first 8K.
 //!
 //! Example:
 //!
