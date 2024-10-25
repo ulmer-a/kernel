@@ -10,8 +10,8 @@ pub struct MemoryChunk {
     pub class: MemoryChunkClass,
 }
 
-impl From<multiboot::MemoryRegion> for MemoryChunk {
-    fn from(value: multiboot::MemoryRegion) -> Self {
+impl From<multiboot::mmap::MemoryRegion> for MemoryChunk {
+    fn from(value: multiboot::mmap::MemoryRegion) -> Self {
         Self {
             base_addr: value.base_addr,
             length: value.length,
@@ -103,9 +103,9 @@ impl Display for MemoryChunkClass {
     }
 }
 
-impl From<multiboot::MemoryRegionKind> for MemoryChunkClass {
-    fn from(value: multiboot::MemoryRegionKind) -> Self {
-        use multiboot::MemoryRegionKind;
+impl From<multiboot::mmap::MemoryRegionKind> for MemoryChunkClass {
+    fn from(value: multiboot::mmap::MemoryRegionKind) -> Self {
+        use multiboot::mmap::MemoryRegionKind;
         match value {
             MemoryRegionKind::Available => Self::Available,
             // ...

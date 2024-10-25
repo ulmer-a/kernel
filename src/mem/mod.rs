@@ -24,14 +24,13 @@ pub fn bootstrap_subsystem(memory_map: impl MemoryMap) {
     log::debug!("Boot memory: {}", tmp_allocator_memory);
 
     // TODO
-    // 1. Implement and initialise simple page frame allocator.
-    // 2. Implement boot page table mapper. If possible, use large pages.
+
+    // 1. Setup bootmem/memblock like allocator for further initialisation
+    // 2. Setup buddy page frame allocator
+    // 3. Implement virtual memory management
     //   a) ident map all available chunks up to 3GiB.
     //   b) direct map all available chunks up to 128MiB to 3.5 GiB.
     //   c) map kernel binary at just below 4GiB.
-    // 3. Implement the slab allocator.
-    // 4. Implement and setup the buddy allocators.
-    // 5. (Optional) Implement and setup the fast stack allocator.
     // 6. Implement the kernel heap.
     // 8. Move all data which needs to be kept into the kernel heap.
     // 7. Move kernel and its stack to the high half + rewind stack!

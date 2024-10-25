@@ -1,4 +1,4 @@
-//! Module provides functionality to traverse a multiboot memory map.
+//! Iterator and structs to traverse and represent entries of the Multiboot memory map.
 
 /// Provides an iterator over the multiboot memory map. The `'mmap` lifetime parameter describes
 /// the lifetime of the underlying memory buffer containing the memory map.
@@ -36,6 +36,7 @@ impl core::fmt::Debug for MemoryMapIter<'_> {
     }
 }
 
+/// A contiguous region of physical memory reported by the Multiboot memory map.
 #[derive(Clone, Copy, PartialEq)]
 pub struct MemoryRegion {
     /// The start address of the memory region.
@@ -74,6 +75,8 @@ impl core::fmt::Debug for MemoryRegion {
     }
 }
 
+/// Describes the availability of the memory referenced by a [`MemoryRegion`] as reported by the
+/// `type` field of a Multiboot memory map entry.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MemoryRegionKind {
     Available,

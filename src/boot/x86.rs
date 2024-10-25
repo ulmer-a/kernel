@@ -1,7 +1,10 @@
 //! On the x86-32 architecture, this kernel uses the `multiboot` boot protocol. Please check the
 //! specification for details on how it works.
 
-use multiboot::BootInfo;
+use multiboot::{
+    header::{Header as MultibootHeader, HeaderBuilder},
+    Multiboot,
+};
 
 /// The top address of the boot stack. The stack grows downwards from this address.
 const BOOT_STACK_BASE: usize = 0x8_0000;
@@ -12,7 +15,7 @@ const BOOT_STACK_BASE: usize = 0x8_0000;
 #[used]
 #[link_section = ".multiboot"]
 #[cfg(target_arch = "x86")]
-static MULTIBOOT_HEADER: multiboot::Header = multiboot::HeaderBuilder::new()
+static MULTIBOOT_HEADER: MultibootHeader = HeaderBuilder::new()
     .request_aligned_modules()
     .request_memory_map()
     .request_default_framebuffer()
@@ -22,7 +25,7 @@ static MULTIBOOT_HEADER: multiboot::Header = multiboot::HeaderBuilder::new()
 /// kernel. There are multiple way to tell the bootloader about its location. Currently, we don't
 /// enable any special fields in the [`MULTIBOOT_HEADER`] so the bootloader will just jump to the
 /// address specificed in the entry point field of the the ELF file. For this to work, the linker
-/// script needs to be written in a way that the address of the [`_multiboot_entry()`] function
+/// script needs to be written in a way that the address of the [`multiboot_start()`] function
 /// actually ends up in the entry point field of the ELF file.
 ///
 /// Before jumping to the [`multiboot_main()`] function, this function will perform the following
@@ -31,7 +34,7 @@ static MULTIBOOT_HEADER: multiboot::Header = multiboot::HeaderBuilder::new()
 /// 1. Setup a stack by loading the `esp` register with the top address of the kernel stack.
 /// 2. Save the pointer to the multiboot information structure found in the `ebx` register.
 /// 3. Save the multiboot magic value found in the `eax` register.
-/// 4. Call the [`clear_bss()`] function.
+/// 4. Call the [`super::clear_bss()`] function.
 /// 5. Call the [`multiboot_main()`] function while passing both of the previously saved values as
 ///    arguments.
 #[naked]
@@ -71,7 +74,7 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! 
 
     let multiboot = unsafe {
         // Safety: Memory must not be mutated.
-        BootInfo::from_addr(magic, mb_ptr)
+        Multiboot::from_addr(magic, mb_ptr)
     };
 
     // Dump entire multiboot structure when in debug mode

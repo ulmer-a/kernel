@@ -1,33 +1,31 @@
-//! This crate contains the structures used to implement the multiboot boot protocol as defined in
-//! the corresponding specification:
+//! This crate makes it very easy for your rust kernel to boot using the multiboot protocol (v1).
+//! For more information, have a look at the multiboot specification:
 //!
-//! https://www.gnu.org/software/grub/manual/multiboot/multiboot.html (version 0.6.96)
+//! <https://www.gnu.org/software/grub/manual/multiboot/multiboot.html> (version 0.6.96)
 
 #![no_std]
 
-mod header;
-mod mmap;
+pub mod header;
+pub mod mmap;
 mod module;
 
-pub use header::*;
-pub use mmap::*;
-use module::Module;
-
+/// The kernel-facing abstraction to the Multiboot information structure as implemented by
+/// [`InnerMultiboot`].
 #[derive(Clone)]
-pub struct BootInfo<'mb> {
-    inner: &'mb InnerBootInfo,
+pub struct Multiboot<'mb> {
+    inner: &'mb InnerMultiboot,
 }
 
-impl BootInfo<'_> {
+impl Multiboot<'_> {
     /// Check multiboot magic value and try to dereference pointer to information structure.
     ///
     /// ### Safety
     ///
     /// The multiboot pointer has to be aligned, non-null and must not be mutated during the `'mb`
     /// lifetime.
-    pub unsafe fn from_addr<'mb>(magic: u32, mb_ptr: *const core::ffi::c_void) -> BootInfo<'mb> {
+    pub unsafe fn from_addr<'mb>(magic: u32, mb_ptr: *const core::ffi::c_void) -> Multiboot<'mb> {
         // Check multiboot magic value and try to dereference pointer to information structure
-        let mb_ptr = mb_ptr.cast::<InnerBootInfo>();
+        let mb_ptr = mb_ptr.cast::<InnerMultiboot>();
         assert_eq!(magic, 0x2badb002, "Multiboot magic value mismatch");
         assert!(mb_ptr.is_aligned(), "Multiboot pointer must be aligned");
         unsafe {
@@ -40,21 +38,21 @@ impl BootInfo<'_> {
     }
 }
 
-impl<'mb> From<&'mb InnerBootInfo> for BootInfo<'mb> {
-    fn from(inner: &'mb InnerBootInfo) -> Self {
+impl<'mb> From<&'mb InnerMultiboot> for Multiboot<'mb> {
+    fn from(inner: &'mb InnerMultiboot) -> Self {
         Self { inner }
     }
 }
 
-impl core::ops::Deref for BootInfo<'_> {
-    type Target = InnerBootInfo;
+impl core::ops::Deref for Multiboot<'_> {
+    type Target = InnerMultiboot;
 
     fn deref(&self) -> &Self::Target {
         self.inner
     }
 }
 
-impl core::fmt::Debug for BootInfo<'_> {
+impl core::fmt::Debug for Multiboot<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Multiboot")
             .field("flags", &self.inner.flags)
@@ -70,10 +68,10 @@ impl core::fmt::Debug for BootInfo<'_> {
 /// passed along to the kernel. It contains information vital to the kernel startup procedure.
 #[repr(C)]
 #[derive(Debug)]
-pub struct InnerBootInfo {
+pub struct InnerMultiboot {
     /// Indicates the presence and validity of other fields in the Multiboot information structure.
     /// Any set bits that the operating system does not understand should be ignored.
-    flags: BootInfoFlags,
+    flags: Flags,
 
     /// If bit 0 in the `flags` word is set, then the `mem_lower` field is valid. `mem_lower`
     /// indicates the amount of lower memory available in kilobytes. Lower memory starts at
@@ -105,7 +103,7 @@ pub struct InnerBootInfo {
     /// If bit 3 of `flags` is set, then the `mods` fields indicate to the kernel what boot modules
     /// were loaded along with the kernel image, and where they can be found. `mods_addr` contains
     /// the physical address of the first module structure. For details each module's structure see
-    /// the [Module] structure.
+    /// the [`module::Module`] structure.
     mods_addr: u32,
 
     _unused: [u32; 4],
@@ -121,10 +119,10 @@ pub struct InnerBootInfo {
     /// memory map entries. For details on their layout see [MemoryMapEntry] documentation. The
     /// map provided is guaranteed to list all standard RAM that should be available for normal
     /// use.
-    mmap: u32,
+    mmap_addr: u32,
 }
 
-impl InnerBootInfo {
+impl InnerMultiboot {
     /// Returns the kernel command line if it has been passed by the bootloader and is valid.
     pub fn command_line(&self) -> Option<&core::ffi::CStr> {
         let cmdline_ptr = self.cmdline as *const core::ffi::c_char;
@@ -136,8 +134,8 @@ impl InnerBootInfo {
     }
 
     /// Returns a reference to the array of modules passed by the bootloader, if present.
-    pub fn modules(&self) -> Option<&[Module]> {
-        let mods_ptr = self.mods_addr as *const Module;
+    pub fn modules(&self) -> Option<&[module::Module]> {
+        let mods_ptr = self.mods_addr as *const module::Module;
         if self.flags.is_modules_valid() & !mods_ptr.is_null() {
             Some(unsafe { core::slice::from_raw_parts(mods_ptr, self.mods_count as usize) })
         } else {
@@ -148,15 +146,13 @@ impl InnerBootInfo {
     /// Returns an iterator that can be used to traverse the memory map passed by the bootloader,
     /// or `None` if there is no memory map present.
     pub fn memory_map<'mb>(&'mb self) -> Option<mmap::MemoryMapIter<'mb>> {
-        use core::slice;
-
-        let mmap_ptr = self.mmap as *const u8;
+        let mmap_ptr = self.mmap_addr as *const u8;
         if self.flags.is_mmap_valid() && !mmap_ptr.is_null() {
             let mmap_buffer = unsafe {
                 // SAFETY: We just checked that the memory map is present and the pointer to its
                 // memory is non-null. Also, we explicitly make sure that the lifetime of the
-                // resulting reference is tied to the lifetime of the BootInfo struct.
-                slice::from_raw_parts::<'mb>(mmap_ptr, self.mmap_length as usize)
+                // resulting reference is tied to the lifetime of the Multiboot struct.
+                core::slice::from_raw_parts::<'mb>(mmap_ptr, self.mmap_length as usize)
             };
             Some(mmap_buffer.into())
         } else {
@@ -167,9 +163,9 @@ impl InnerBootInfo {
 
 #[derive(Clone)]
 #[repr(transparent)]
-struct BootInfoFlags(u32);
+struct Flags(u32);
 
-impl BootInfoFlags {
+impl Flags {
     const fn bits() -> &'static [(&'static str, usize)] {
         &[
             ("MEM", 0),
@@ -205,14 +201,14 @@ impl BootInfoFlags {
     }
 }
 
-impl core::fmt::Debug for BootInfoFlags {
+impl core::fmt::Debug for Flags {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{{ ")?;
-        for flag_set in Self::bits()
+        for flag_name in Self::bits()
             .iter()
             .filter_map(|(name, bit)| self.is_nth_bit_set(*bit).then_some(name))
         {
-            write!(f, "{flag_set}, ")?;
+            write!(f, "{flag_name}, ")?;
         }
         write!(f, ".. }}")
     }

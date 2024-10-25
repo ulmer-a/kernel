@@ -1,3 +1,19 @@
+//! Every multiboot-compliant kernel needs to have the multiboot header structure within the first
+//! 8K of its binary. It is recommended to link it into a custom section of the binary (e.g.
+//! `.multiboot`) to make sure that it will actually end up in the first 8K.
+//!
+//! Example:
+//!
+//! ```
+//! #[used]
+//! #[link_section = ".multiboot"]
+//! static MULTIBOOT_HEADER: Header = HeaderBuilder::new()
+//!     .request_aligned_modules()
+//!     .request_memory_map()
+//!     .request_default_framebuffer()
+//!     .build();
+//! ```
+
 /// The multiboot header must be present in the first 8KB of every multiboot-compliant kernel image.
 /// It is used to indicate to the bootloader which features and information the kernel requires.
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +49,8 @@ pub struct Header {
 /// compile error, then you know that sizeof `Header` is messed up!
 const _: [(); 48] = [(); core::mem::size_of::<Header>()];
 
+/// Optional part of the Multiboot header which includes load and entry addresses that override the
+/// values from the ELF header.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadAddressRequest {
     /// Contains the address corresponding to the beginning of the Multiboot header — the physical
@@ -64,6 +82,8 @@ pub struct LoadAddressRequest {
     entry_addr: u32,
 }
 
+/// Optional part of the Multiboot header which requests either a graphical framebuffer or a text
+/// mode console from the bootloader.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GraphicsRequest {
     /// Contains 0 for linear graphics mode or 1 for EGA-standard text mode. Everything else is
@@ -103,6 +123,8 @@ impl GraphicsRequest {
     }
 }
 
+/// Builder struct to construct a valid multiboot header. The builder methods to enable specific
+/// features.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct HeaderBuilder {
     flags: u32,
@@ -110,8 +132,6 @@ pub struct HeaderBuilder {
     graphics: Option<GraphicsRequest>,
 }
 
-/// Construct a basic valid multiboot header with none of the request flags enabled. Use the
-/// builder methods to enable specific features.
 impl HeaderBuilder {
     /// Create a new header builder with default flags. This could be replaced with
     /// Default::default() if it was const. But it isn't so plase use new() if you want a const
