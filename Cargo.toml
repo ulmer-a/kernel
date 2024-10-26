@@ -1,15 +1,3 @@
 [workspace]
-members = ["types", "multiboot"]
-
-[package]
-name = "kernel"
-version = "0.1.0"
-edition = "2021"
-license = "GPL-3.0-or-later"
-description = "Kernel for my Pentium III PC"
-authors = [ "Alexander Ulmer <alexander.ulmer@gurdinet.at>" ]
-
-[dependencies]
-log = "0.4.21"
-multiboot = { version = "0.1.0", path = "./multiboot" }
-types = { version = "0.1.0", path = "./types" }
+members = ["kernel", "multiboot", "allocators", "types"]
+resolver = "2"
