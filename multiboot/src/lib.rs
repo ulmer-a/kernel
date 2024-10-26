@@ -41,6 +41,14 @@ impl Multiboot<'_> {
         self.inner.command_line().map(|c_str| c_str.to_str())?.ok()
     }
 
+    /// Returns the bootloader name if it has been passed by the bootloader and is valid.
+    pub fn bootloader_name(&self) -> Option<&str> {
+        self.inner
+            .boot_loader_name()
+            .map(|c_str| c_str.to_str())?
+            .ok()
+    }
+
     /// Returns an iterator that can be used to traverse the memory map passed by the bootloader,
     /// or `None` if there is no memory map present.
     pub fn memory_map(&self) -> Option<mmap::MemoryMapIter> {
@@ -50,6 +58,11 @@ impl Multiboot<'_> {
     /// Returns a reference to the array of modules passed by the bootloader, if present.
     pub fn modules(&self) -> Option<&[module::Module]> {
         self.inner.modules()
+    }
+
+    /// Returns the framebuffer information if it has been passed by the bootloader and is valid.
+    pub fn framebuffer(&self) -> Option<Framebuffer> {
+        self.inner.framebuffer().map(|fbr| fbr.clone())
     }
 }
 
@@ -66,7 +79,10 @@ impl core::fmt::Debug for Multiboot<'_> {
             // .field("low_mem", &self.inner.mem_lower)
             // .field("high_mem", &self.inner.mem_upper)
             .field("cmdline", &self.inner.command_line())
+            .field("bootloader", &self.inner.boot_loader_name())
             .field("mmap", &self.memory_map())
+            .field("vbe", &self.inner.vbe())
+            .field("framebuffer", &self.inner.framebuffer())
             .finish_non_exhaustive()
     }
 }
@@ -127,7 +143,29 @@ struct InnerMultiboot {
     /// map provided is guaranteed to list all standard RAM that should be available for normal
     /// use.
     mmap_addr: u32,
+
+    drives_length: u32,
+
+    drives_addr: u32,
+
+    config_table: u32,
+
+    /// If bit 9 in the `flags` is set, the `boot_loader_name` field is valid, and contains the
+    /// physical address of the name of a boot loader booting the kernel. The name is a normal
+    /// C-style zero-terminated string.
+    boot_loader_name: u32,
+
+    apm_table: u32,
+
+    /// VBE table is available if bit 11 of `flags` is set.
+    vbe: Vbe,
+
+    /// Framebuffer table is available if bit 12 of `flags` is set.
+    framebuffer: Framebuffer,
 }
+
+// Compile time check for sizeof(InnerMultiboot) == 116
+const _: [(); 116] = [(); core::mem::size_of::<InnerMultiboot>()];
 
 impl InnerMultiboot {
     /// Returns the kernel command line if it has been passed by the bootloader and is valid.
@@ -162,6 +200,31 @@ impl InnerMultiboot {
                 core::slice::from_raw_parts::<'mb>(mmap_ptr, self.mmap_length as usize)
             };
             Some(mmap_buffer.into())
+        } else {
+            None
+        }
+    }
+
+    fn boot_loader_name(&self) -> Option<&core::ffi::CStr> {
+        let bootloader_name_ptr = self.boot_loader_name as *const core::ffi::c_char;
+        if self.flags.is_bootloader_name_valid() && !bootloader_name_ptr.is_null() {
+            Some(unsafe { core::ffi::CStr::from_ptr(bootloader_name_ptr) })
+        } else {
+            None
+        }
+    }
+
+    fn vbe(&self) -> Option<&Vbe> {
+        if self.flags.is_nth_bit_set(11) {
+            Some(&self.vbe)
+        } else {
+            None
+        }
+    }
+
+    fn framebuffer(&self) -> Option<&Framebuffer> {
+        if self.flags.is_framebuffer_valid() {
+            Some(&self.framebuffer)
         } else {
             None
         }
@@ -206,6 +269,14 @@ impl Flags {
     fn is_modules_valid(&self) -> bool {
         self.is_nth_bit_set(6)
     }
+
+    fn is_bootloader_name_valid(&self) -> bool {
+        self.is_nth_bit_set(9)
+    }
+
+    fn is_framebuffer_valid(&self) -> bool {
+        self.is_nth_bit_set(12)
+    }
 }
 
 impl core::fmt::Debug for Flags {
@@ -219,4 +290,27 @@ impl core::fmt::Debug for Flags {
         }
         write!(f, ".. }}")
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[repr(C)]
+struct Vbe {
+    control_info: u32,
+    mode_info: u32,
+    mode: u16,
+    interface_seg: u16,
+    interface_off: u16,
+    interface_len: u16,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[repr(C, packed)]
+pub struct Framebuffer {
+    addr: u64,
+    pitch: u32,
+    width: u32,
+    height: u32,
+    bits_per_pixel: u8,
+    framebuffer_type: u8,
+    color_info: [u8; 6],
 }
