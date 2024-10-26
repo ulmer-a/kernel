@@ -54,35 +54,38 @@ const _: [(); 48] = [(); core::mem::size_of::<Header>()];
 /// Optional part of the Multiboot header which includes load and entry addresses that override the
 /// values from the ELF header.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg(target_arch = "x86")]
 pub struct LoadAddressRequest {
     /// Contains the address corresponding to the beginning of the Multiboot header — the physical
     /// memory location at which the magic value is supposed to be loaded. This field serves to
     /// synchronize the mapping between OS image offsets and physical memory addresses.
-    header_addr: u32,
+    pub header_addr: *const Header,
 
     /// Contains the physical address of the beginning of the text segment. The offset in the OS
     /// image file at which to start loading is defined by the offset at which the header was
     /// found, minus (header_addr - load_addr). load_addr must be less than or equal to
     /// header_addr.
-    load_addr: u32,
+    pub load_addr: *const core::ffi::c_void,
 
     /// Contains the physical address of the end of the data segment. (load_end_addr - load_addr)
     /// specifies how much data to load. This implies that the text and data segments must be
     /// consecutive in the OS image; this is true for existing a.out executable formats. If this
     /// field is zero, the boot loader assumes that the text and data segments occupy the whole OS
     /// image file.
-    load_end_addr: u32,
+    pub load_end_addr: *const core::ffi::c_void,
 
     /// Contains the physical address of the end of the bss segment. The boot loader initializes
     /// this area to zero, and reserves the memory it occupies to avoid placing boot modules and
     /// other data relevant to the operating system in that area. If this field is zero, the boot
     /// loader assumes that no bss segment is present.
-    bss_end_addr: u32,
+    pub bss_end_addr: *const core::ffi::c_void,
 
     /// The physical address to which the boot loader should jump in order to start running the
     /// operating system.
-    entry_addr: u32,
+    pub entry_addr: *const (),
 }
+
+unsafe impl Sync for LoadAddressRequest {}
 
 /// Optional part of the Multiboot header which requests either a graphical framebuffer or a text
 /// mode console from the bootloader.
@@ -162,6 +165,14 @@ impl HeaderBuilder {
         }
     }
 
+    pub const fn request_load_addrs(self, addrs: LoadAddressRequest) -> Self {
+        Self {
+            flags: self.flags | (1 << 16),
+            addresses: Some(addrs),
+            ..self
+        }
+    }
+
     /// Request graphics mode from the bootloader specified by `graphics`.
     pub const fn request_graphics(self, graphics: GraphicsRequest) -> Self {
         Self {
@@ -192,11 +203,11 @@ impl HeaderBuilder {
             addresses: match self.addresses {
                 Some(addresses) => addresses,
                 None => LoadAddressRequest {
-                    header_addr: 0,
-                    load_addr: 0,
-                    load_end_addr: 0,
-                    bss_end_addr: 0,
-                    entry_addr: 0,
+                    header_addr: 0 as *const Header,
+                    load_addr: 0 as *const core::ffi::c_void,
+                    load_end_addr: 0 as *const core::ffi::c_void,
+                    bss_end_addr: 0 as *const core::ffi::c_void,
+                    entry_addr: 0 as *const (),
                 },
             },
             graphics: match self.graphics {

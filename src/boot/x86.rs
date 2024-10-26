@@ -6,6 +6,8 @@ use multiboot::{
     Multiboot,
 };
 
+// use super::{__bss_end, __data_end, __text_start};
+
 /// The top address of the boot stack. The stack grows downwards from this address.
 const BOOT_STACK_BASE: usize = 0x8_0000;
 
@@ -18,6 +20,13 @@ const BOOT_STACK_BASE: usize = 0x8_0000;
 static MULTIBOOT_HEADER: MultibootHeader = HeaderBuilder::new()
     .request_aligned_modules()
     .request_memory_map()
+    // .request_load_addrs(LoadAddressRequest {
+    //     header_addr: &MULTIBOOT_HEADER as *const MultibootHeader,
+    //     load_addr: unsafe { &__text_start } as *const core::ffi::c_void,
+    //     load_end_addr: unsafe { &__data_end } as *const core::ffi::c_void,
+    //     bss_end_addr: unsafe { &__bss_end } as *const core::ffi::c_void,
+    //     entry_addr: multiboot_start as *const (),
+    // })
     .request_default_framebuffer()
     .build();
 

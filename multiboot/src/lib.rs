@@ -62,7 +62,7 @@ impl Multiboot<'_> {
 
     /// Returns the framebuffer information if it has been passed by the bootloader and is valid.
     pub fn framebuffer(&self) -> Option<Framebuffer> {
-        self.inner.framebuffer().map(|fbr| fbr.clone())
+        self.inner.framebuffer().cloned()
     }
 }
 
