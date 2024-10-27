@@ -1,3 +1,3 @@
 [workspace]
-members = ["kernel", "multiboot", "allocators", "types"]
+members = ["multiboot", "allocators", "types"]
 resolver = "2"
