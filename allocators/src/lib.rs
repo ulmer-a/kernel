@@ -82,7 +82,7 @@ impl<const ORDER: usize, A: Allocator + Clone> BuddyAllocator<ORDER, A> {
             // Find the largest possible power of 2 that `range.start` is a multiple of.
             let insertion_alignment = match range.start {
                 x if x > 0 => x & (!x + 1),
-                x if x == 0 => usize::MAX,
+                0 => usize::MAX,
                 _ => unreachable!(),
             };
 
@@ -208,7 +208,7 @@ impl<const ORDER: usize> Debug for BuddyAllocator<ORDER> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "Free block locations: [ ")?;
         for n in (0..ORDER).rev() {
-            if self.free_lists[n].len() > 0 {
+            if !self.free_lists[n].is_empty() {
                 write!(f, "{}: {:?}, ", 2_u32.pow(n as u32), self.free_lists[n])?;
             }
         }
