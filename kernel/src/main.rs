@@ -4,7 +4,7 @@
 #![feature(slice_from_ptr_range)] // mem::bss()
 #![deny(clippy::float_arithmetic, reason = "no hardware float support")]
 
-// extern crate alloc;
+extern crate alloc;
 
 mod arch;
 mod boot;

@@ -1,6 +1,6 @@
 //! Paging/virtual memory implementation for IA-32 architecture (x86).
 
-use super::PageFrameAlloc;
+use super::*;
 
 pub struct BootIdentMapping {}
 

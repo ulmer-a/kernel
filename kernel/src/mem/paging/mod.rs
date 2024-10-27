@@ -1,15 +1,15 @@
 //! Virtual Memory and Paging
 
 #[cfg(target_arch = "x86")]
-mod x86;
+pub mod x86;
 
 pub trait PageFrameAlloc {
     fn alloc_page(&mut self) -> PhysicalPageNumber;
 }
 
-// pub trait PagingMode {
-//     type TopLevelTable: PageTable;
-// }
+pub trait PagingMode {
+    fn create_boot_addr_space();
+}
 
 /// A virtual memory address space.
 pub trait AddressSpace {

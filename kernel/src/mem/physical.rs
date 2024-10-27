@@ -1,5 +1,5 @@
 use core::fmt::{Display, Formatter, Result};
-use types::mem::MemoryChunk;
+use types::mem::MemoryRegion;
 
 struct _PhysicalMemory {
     /// Buddy allocator for contiguous ranges of physical page frames below 16 MiB. Used to
@@ -17,17 +17,17 @@ struct _PhysicalMemory {
 }
 
 
-pub trait MemoryMap: Iterator<Item = MemoryChunk> + Clone {
+pub trait MemoryMap: Iterator<Item = MemoryRegion> + Clone {
     fn fmt(&self) -> MemoryMapFmt<Self> {
         MemoryMapFmt { iter: self.clone() }
     }
 
-    fn filter_usable(&self) -> impl Iterator<Item = MemoryChunk> {
+    fn filter_usable(&self) -> impl Iterator<Item = MemoryRegion> {
         self.clone().filter(|chunk| chunk.is_usable())
     }
 }
 
-impl<T> MemoryMap for T where T: Iterator<Item = MemoryChunk> + Clone {}
+impl<T> MemoryMap for T where T: Iterator<Item = MemoryRegion> + Clone {}
 
 #[derive(Clone)]
 pub struct MemoryMapFmt<I> {
@@ -43,7 +43,7 @@ impl<T: Iterator> Iterator for MemoryMapFmt<T> {
     }
 }
 
-impl<T: Iterator<Item = MemoryChunk> + Clone> Display for MemoryMapFmt<T> {
+impl<T: Iterator<Item = MemoryRegion> + Clone> Display for MemoryMapFmt<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let total_bytes_available = self
             .clone()

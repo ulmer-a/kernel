@@ -4,13 +4,13 @@ use core::fmt::{Display, Formatter, Result};
 use crate::fmt::Fmt;
 
 #[derive(Debug, Clone)]
-pub struct MemoryChunk {
+pub struct MemoryRegion {
     pub base_addr: u64,
     pub length: u64,
-    pub class: MemoryChunkClass,
+    pub class: MemoryRegionType,
 }
 
-impl From<multiboot::mmap::MemoryRegion> for MemoryChunk {
+impl From<multiboot::mmap::MemoryRegion> for MemoryRegion {
     fn from(value: multiboot::mmap::MemoryRegion) -> Self {
         Self {
             base_addr: value.base_addr,
@@ -20,7 +20,7 @@ impl From<multiboot::mmap::MemoryRegion> for MemoryChunk {
     }
 }
 
-impl MemoryChunk {
+impl MemoryRegion {
     pub fn crop_start(self, min_addr: u64) -> Option<Self> {
         if min_addr < self.end_addr() {
             Some(Self {
@@ -35,7 +35,7 @@ impl MemoryChunk {
 
     pub fn crop_end(self, max_addr: u64) -> Option<Self> {
         if max_addr > self.base_addr {
-            Some(MemoryChunk {
+            Some(MemoryRegion {
                 length: if max_addr < self.end_addr() {
                     min(self.end_addr(), max_addr) - self.base_addr
                 } else {
@@ -70,11 +70,11 @@ impl MemoryChunk {
     }
 
     pub fn is_usable(&self) -> bool {
-        self.class == MemoryChunkClass::Available
+        self.class == MemoryRegionType::Available
     }
 }
 
-impl core::fmt::Display for MemoryChunk {
+impl core::fmt::Display for MemoryRegion {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
@@ -87,23 +87,23 @@ impl core::fmt::Display for MemoryChunk {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MemoryChunkClass {
+pub enum MemoryRegionType {
     Available,
     Unusable,
     Reclaimable,
 }
 
-impl Display for MemoryChunkClass {
+impl Display for MemoryRegionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str(match self {
-            MemoryChunkClass::Available => "usable",
-            MemoryChunkClass::Unusable => "reserved",
-            MemoryChunkClass::Reclaimable => "reclaimable",
+            Self::Available => "usable",
+            Self::Unusable => "reserved",
+            Self::Reclaimable => "reclaimable",
         })
     }
 }
 
-impl From<multiboot::mmap::MemoryRegionKind> for MemoryChunkClass {
+impl From<multiboot::mmap::MemoryRegionKind> for MemoryRegionType {
     fn from(value: multiboot::mmap::MemoryRegionKind) -> Self {
         use multiboot::mmap::MemoryRegionKind;
         match value {
