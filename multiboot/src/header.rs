@@ -7,9 +7,11 @@
 //! Example:
 //!
 //! ```
+//! use multiboot::header::{Header as MultibootHeader, HeaderBuilder};
+//!
 //! #[used]
-//! #[link_section = ".multiboot"]
-//! static MULTIBOOT_HEADER: Header = HeaderBuilder::new()
+//! // #[link_section = ".multiboot"] // Configure your linker to place this before .text
+//! static MULTIBOOT_HEADER: MultibootHeader = HeaderBuilder::new()
 //!     .request_aligned_modules()
 //!     .request_memory_map()
 //!     .request_default_framebuffer()
@@ -49,12 +51,12 @@ pub struct Header {
 
 /// Compile time check that Header is of size 48. If the following line throws a size mismatch
 /// compile error, then you know that sizeof `Header` is messed up!
+#[cfg(target_pointer_width = "32")]
 const _: [(); 48] = [(); core::mem::size_of::<Header>()];
 
 /// Optional part of the Multiboot header which includes load and entry addresses that override the
 /// values from the ELF header.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg(target_arch = "x86")]
 pub struct LoadAddressRequest {
     /// Contains the address corresponding to the beginning of the Multiboot header — the physical
     /// memory location at which the magic value is supposed to be loaded. This field serves to
