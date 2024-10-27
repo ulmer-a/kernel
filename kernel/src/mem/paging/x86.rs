@@ -2,40 +2,48 @@
 
 use super::*;
 
-pub struct BootIdentMapping {}
+pub struct PagingFactory {}
 
-impl BootIdentMapping {
-    pub fn new(
-        allocator: &mut dyn PageFrameAlloc,
-        mappings: impl Iterator<Item = types::mem::MemoryChunk>,
-    ) -> Self {
-        let mut builder = BootIdentMappingBuilder::new(allocator);
-        for mapping in mappings {
-            builder.add_mapping(mapping);
-        }
-        Self {}
-    }
-}
-
-pub struct BootIdentMappingBuilder<'alloc> {
-    allocator: &'alloc mut dyn PageFrameAlloc,
-    page_directory: *mut (),
-}
-
-impl<'alloc> BootIdentMappingBuilder<'alloc> {
-    fn new(allocator: &'alloc mut dyn PageFrameAlloc) -> Self {
-        let page_directory = allocator.alloc_page();
-        Self {
-            allocator,
-            page_directory: unsafe { todo!() },
-        }
-    }
-
-    fn add_mapping(&mut self, region: types::mem::MemoryChunk) {
-        let page_dir = unsafe { self.page_directory.as_mut().unwrap() };
+impl PagingMode for PagingFactory {
+    fn create_boot_addr_space() {
         todo!()
     }
 }
+
+// pub struct BootIdentMapping {}
+
+// impl BootIdentMapping {
+//     pub fn new(
+//         allocator: &mut dyn PageFrameAlloc,
+//         mappings: impl Iterator<Item = types::mem::MemoryRegion>,
+//     ) -> Self {
+//         let mut builder = BootIdentMappingBuilder::new(allocator);
+//         for mapping in mappings {
+//             builder.add_mapping(mapping);
+//         }
+//         Self {}
+//     }
+// }
+
+// pub struct BootIdentMappingBuilder<'alloc> {
+//     allocator: &'alloc mut dyn PageFrameAlloc,
+//     page_directory: *mut (),
+// }
+
+// impl<'alloc> BootIdentMappingBuilder<'alloc> {
+//     fn new(allocator: &'alloc mut dyn PageFrameAlloc) -> Self {
+//         let page_directory = allocator.alloc_page();
+//         Self {
+//             allocator,
+//             page_directory: todo!(),
+//         }
+//     }
+
+//     fn add_mapping(&mut self, region: types::mem::MemoryRegion) {
+//         let page_dir = unsafe { self.page_directory.as_mut().unwrap() };
+//         todo!()
+//     }
+// }
 
 // type PageDirectory = PageTable32<2>;
 

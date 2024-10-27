@@ -1,6 +1,5 @@
 //! Memory management
 
-mod heap;
 pub mod paging;
 pub mod physical;
 
@@ -25,7 +24,7 @@ pub fn bootstrap_subsystem<P: PagingMode>(memory_map: impl physical::MemoryMap) 
     log::debug!("Boot memory: {}", tmp_allocator_memory);
 
     // Create virtual address space
-    let _ = P::create_kernel_space();
+    let _ = P::create_boot_addr_space();
     // TODO: identity map physical memory and setup heap
 
     // 1. Setup bootmem/memblock like allocator for further initialisation
