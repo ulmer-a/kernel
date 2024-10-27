@@ -8,7 +8,7 @@ pub trait PageFrameAlloc {
 }
 
 pub trait PagingMode {
-    fn create_boot_addr_space();
+    fn create_boot_mappings(allocator: &mut dyn PageFrameAlloc) -> impl AddressSpace;
 }
 
 /// A virtual memory address space.
@@ -16,7 +16,7 @@ pub trait AddressSpace {
     // ...
 
     /// Switch to this address space on the current CPU.
-    fn load();
+    fn load(&self);
 
     // /// Call this as soon as the address space has been unloaded to release locks.
     // fn unloaded();
@@ -27,7 +27,7 @@ pub struct UserAddressSpace {
 }
 
 impl AddressSpace for UserAddressSpace {
-    fn load() {
+    fn load(&self) {
         todo!()
     }
 }

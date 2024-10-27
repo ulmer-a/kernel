@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(naked_functions)] // boot::_multiboot_entry()
 #![feature(slice_from_ptr_range)] // mem::bss()
+#![feature(allocator_api)]
 #![deny(clippy::float_arithmetic, reason = "no hardware float support")]
 
 extern crate alloc;

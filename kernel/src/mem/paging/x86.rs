@@ -5,12 +5,19 @@ use super::*;
 pub struct PagingFactory {}
 
 impl PagingMode for PagingFactory {
-    fn create_boot_addr_space() {
-        todo!()
+    fn create_boot_mappings(_allocator: &mut dyn PageFrameAlloc) -> impl AddressSpace {
+        _allocator.alloc_page();
+        BootIdentMapping {}
     }
 }
 
-// pub struct BootIdentMapping {}
+pub struct BootIdentMapping {}
+
+impl AddressSpace for BootIdentMapping {
+    fn load(&self) {
+        todo!()
+    }
+}
 
 // impl BootIdentMapping {
 //     pub fn new(

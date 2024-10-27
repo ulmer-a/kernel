@@ -1,9 +1,10 @@
 //! Memory management
 
+pub mod heap;
 pub mod paging;
 pub mod physical;
 
-use paging::PagingMode;
+use paging::{AddressSpace, PagingMode};
 
 /// Max size of physical memory direct mapping on 32-bit x86 (virtual address space size limit).
 #[cfg(target_arch = "x86")]
@@ -23,9 +24,9 @@ pub fn bootstrap_subsystem<P: PagingMode>(memory_map: impl physical::MemoryMap) 
 
     log::debug!("Boot memory: {}", tmp_allocator_memory);
 
-    // Create virtual address space
-    let _ = P::create_boot_addr_space();
-    // TODO: identity map physical memory and setup heap
+    // Create virtual address space for boot-time identity mappings
+    let _boot_mappings = P::create_boot_mappings(todo!());
+    _boot_mappings.load();
 
     // 1. Setup bootmem/memblock like allocator for further initialisation
     // 2. Setup buddy page frame allocator
