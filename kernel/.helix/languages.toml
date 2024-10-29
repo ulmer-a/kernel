@@ -1,3 +1,2 @@
 [language-server.rust-analyzer.config]
 cargo.target = "i686-unknown-linux-gnu"
-check.command = "clippy"
