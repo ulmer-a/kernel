@@ -100,7 +100,7 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! 
         .map(|mb_region| mb_region.into());
 
     use crate::mem::paging::x86;
-    crate::mem::bootstrap_subsystem::<x86::PagingFactory>(memory_map);
+    crate::mem::bootstrap_subsystem::<x86::Paging>(memory_map);
 
     // TODO Implement the rest of the boot process here.
 

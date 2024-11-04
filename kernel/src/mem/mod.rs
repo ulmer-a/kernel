@@ -4,7 +4,7 @@ pub mod heap;
 pub mod paging;
 pub mod physical;
 
-use paging::{AddressSpace, PagingMode};
+use paging::PagingMode;
 
 /// Max size of physical memory direct mapping on 32-bit x86 (virtual address space size limit).
 #[cfg(target_arch = "x86")]
@@ -24,9 +24,16 @@ pub fn bootstrap_subsystem<P: PagingMode>(memory_map: impl physical::MemoryMap) 
 
     log::debug!("Boot memory: {}", tmp_allocator_memory);
 
-    // Create virtual address space for boot-time identity mappings
-    let _boot_mappings = P::create_boot_mappings(todo!());
-    _boot_mappings.load();
+    // TODO: Setup a buddy allocator to be able to allocate page frames
+    //   Problem: Buddy allocator requires heap allocator (for the BTreeMap).
+    //   Problem: Heap allocator requires virtual memory to be in place, because otherwise pointers
+    //   to physical addresses would be given out.
+    // -> Need to setup a higher half mapping asap.
+
+    // TODO: Setup simple page-frame allocator that just gives out some pages.
+
+    // TODO: Create boot-time virtual address space
+    P::create_boot_addr_space();
 
     // 1. Setup bootmem/memblock like allocator for further initialisation
     // 2. Setup buddy page frame allocator

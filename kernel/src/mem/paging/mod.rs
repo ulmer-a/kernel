@@ -1,66 +1,81 @@
 //! Virtual Memory and Paging
 
+#![allow(unused)]
+
+use core::{marker::PhantomData, pin::Pin};
+
 #[cfg(target_arch = "x86")]
 pub mod x86;
 
-pub trait PageFrameAlloc {
-    fn alloc_page(&mut self) -> PhysicalPageNumber;
+pub trait PagingMode: Sized {
+    fn create_boot_addr_space();
 }
 
-pub trait PagingMode {
-    fn create_boot_mappings(allocator: &mut dyn PageFrameAlloc) -> impl AddressSpace;
+pub struct Unknown;
+pub struct Unmapped;
+pub struct PageMapped;
+pub struct TableMapped;
+
+pub struct PageTableEntry<'table, T, I> {
+    inner: Pin<&'table I>,
+    _phantom: PhantomData<T>,
 }
 
-/// A virtual memory address space.
-pub trait AddressSpace {
-    // ...
-
-    /// Switch to this address space on the current CPU.
-    fn load(&self);
-
-    // /// Call this as soon as the address space has been unloaded to release locks.
-    // fn unloaded();
+pub struct GeneralTableEntryMut<'table, T, I> {
+    inner: Pin<&'table mut I>,
+    _phantom: PhantomData<T>,
 }
 
-pub struct UserAddressSpace {
-    // ...
-}
+impl<I: TableEntryImpl> PageTableEntry<'_, Unknown, I> {
+    fn is_mapped(&self) -> bool {
+        self.inner.is_mapped()
+    }
 
-impl AddressSpace for UserAddressSpace {
-    fn load(&self) {
+    fn as_table(&self) -> Option<PageTableEntry<'_, TableMapped, I>> {
         todo!()
     }
 }
 
-// pub trait PageTable: core::ops::Index<VirtualPageNumber, Output = dyn PageTableEntry> {
-//     type Entry: PageTableEntry;
+impl<I: TableEntryImpl> GeneralTableEntryMut<'_, Unknown, I> {
+    fn as_table_mut(&mut self) -> Option<GeneralTableEntryMut<'_, TableMapped, I>> {
+        todo!()
+    }
+}
 
-//     fn granularity() -> usize;
+pub trait TableEntryImpl {
+    fn is_mapped(&self) -> bool;
 
-//     fn iter_mut(&mut self) -> impl Iterator<Item = &mut dyn PageTableEntry>;
-// }
+    fn granularity() -> usize;
 
-// pub trait PageTableEntry {
-//     fn map_page(&mut self, ppn: ()) -> Result<(), ()>;
+    fn map_page(&mut self, ppn: PhysicalPageNumber, user_accessible: bool, writeable: bool);
 
-//     fn unmap(&mut self) -> Result<PhysicalPageMut, ()> {
-//         Err(())
-//     }
-// }
+    fn map_table(&mut self, ppn: PhysicalPageNumber);
 
+    fn unmap(&mut self) -> Option<PhysicalPageNumber>;
+}
+
+/// Identifies a single page frame within the physical memory space.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PhysicalPageNumber {
     ppn: usize,
 }
 
-// impl PhysicalPageMut {
-//     pub unsafe fn get_physical_ptr<T>(&self) -> *mut T {
-//         // (ppn * PAGE_SIZE) as *mut T
-//         todo!()
-//     }
-// }
+impl PhysicalPageNumber {
+    pub fn into_physical_ptr<T>(self) -> *mut T {
+        (self.ppn * 4096) as *mut T
+    }
+}
 
+/// Identifies a single virtual memory page in a virtual address space.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VirtualPageNumber {
     vpn: usize,
+}
+
+impl VirtualPageNumber {
+    pub fn from_addr(addr: u64) -> Self {
+        Self {
+            vpn: (addr / 4096) as usize,
+        }
+    }
 }

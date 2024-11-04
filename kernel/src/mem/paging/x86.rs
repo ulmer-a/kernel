@@ -1,122 +1,117 @@
 //! Paging/virtual memory implementation for IA-32 architecture (x86).
 
-use super::*;
+use super::{PhysicalPageNumber, TableEntryImpl};
 
-pub struct PagingFactory {}
+pub struct Paging;
 
-impl PagingMode for PagingFactory {
-    fn create_boot_mappings(_allocator: &mut dyn PageFrameAlloc) -> impl AddressSpace {
-        _allocator.alloc_page();
-        BootIdentMapping {}
-    }
-}
-
-pub struct BootIdentMapping {}
-
-impl AddressSpace for BootIdentMapping {
-    fn load(&self) {
+impl super::PagingMode for Paging {
+    fn create_boot_addr_space() {
         todo!()
     }
 }
 
-// impl BootIdentMapping {
-//     pub fn new(
-//         allocator: &mut dyn PageFrameAlloc,
-//         mappings: impl Iterator<Item = types::mem::MemoryRegion>,
-//     ) -> Self {
-//         let mut builder = BootIdentMappingBuilder::new(allocator);
-//         for mapping in mappings {
-//             builder.add_mapping(mapping);
-//         }
-//         Self {}
-//     }
-// }
+type PageDirectoryEntry = GeneralTableEntry<2>;
 
-// pub struct BootIdentMappingBuilder<'alloc> {
-//     allocator: &'alloc mut dyn PageFrameAlloc,
-//     page_directory: *mut (),
-// }
+type PageTableEntry = GeneralTableEntry<1>;
 
-// impl<'alloc> BootIdentMappingBuilder<'alloc> {
-//     fn new(allocator: &'alloc mut dyn PageFrameAlloc) -> Self {
-//         let page_directory = allocator.alloc_page();
-//         Self {
-//             allocator,
-//             page_directory: todo!(),
-//         }
-//     }
+/// A Page Directory or Page Table entry.
+#[repr(transparent)]
+#[derive(Copy, Clone, PartialEq)]
+pub struct GeneralTableEntry<const LEVEL: usize> {
+    inner: u32,
+}
 
-//     fn add_mapping(&mut self, region: types::mem::MemoryRegion) {
-//         let page_dir = unsafe { self.page_directory.as_mut().unwrap() };
-//         todo!()
-//     }
-// }
+impl<const LEVEL: usize> GeneralTableEntry<LEVEL> {
+    /// Whether the entry is present (a page table or a physical page is mapped).
+    fn is_present(&self) -> bool {
+        self.inner & 1 != 0
+    }
+}
 
-// type PageDirectory = PageTable32<2>;
+impl TableEntryImpl for GeneralTableEntry<2> {
+    fn is_mapped(&self) -> bool {
+        self.is_present()
+    }
 
-// type PageTable = PageTable32<1>;
+    fn map_page(&mut self, ppn: PhysicalPageNumber, user_accessible: bool, writeable: bool) {
+        self.inner = EntryBuilder::default()
+            .with_huge_page(ppn)
+            .with_options(writeable, user_accessible)
+            .build_present();
+    }
 
-// #[repr(C, align(4096))]
-// struct PageTable32<const LEVEL: usize> {
-//     tables: [u32; 1024],
-// }
+    fn map_table(&mut self, ppn: PhysicalPageNumber) {
+        self.inner = EntryBuilder::default()
+            .with_ppn(ppn)
+            .with_options(true, true)
+            .build_present();
+    }
 
-// struct PageTableIterMut<'table, T> {
-//     entries: &'table mut [u32],
-// }
+    fn unmap(&mut self) -> Option<PhysicalPageNumber> {
+        todo!()
+    }
 
-// impl<'table, T: super::PageTable> Iterator for PageTableIterMut<'table, T> {
-//     type Item = &'table mut dyn super::PageTableEntry;
+    fn granularity() -> usize {
+        // granularity of PageDirectory is 4 MiB (1024 pages)
+        4096 * 1024
+    }
+}
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let entry = &mut self.entries.get(0)?;
-//         self.entries = &mut self.entries[1..];
-//         Some(unsafe { core::mem::transmute(entry) })
-//     }
-// }
+impl TableEntryImpl for GeneralTableEntry<1> {
+    fn is_mapped(&self) -> bool {
+        self.is_present()
+    }
 
-// impl super::PageTable for PageDirectory {
-//     fn granularity() -> usize {
-//         4096 * 1024
-//     }
+    fn map_page(&mut self, ppn: PhysicalPageNumber, user_accessible: bool, writeable: bool) {
+        self.inner = EntryBuilder::default()
+            .with_ppn(ppn)
+            .with_options(writeable, user_accessible)
+            .build_present();
+    }
 
-//     fn iter_mut(&mut self) -> impl Iterator<Item = &mut dyn super::PageTableEntry> {
-//         todo!()
-//     }
-// }
+    fn map_table(&mut self, _ppn: PhysicalPageNumber) {
+        todo!() // Error
+    }
 
-// impl super::PageTable for PageTable {
-//     fn granularity() -> usize {
-//         4096
-//     }
+    fn unmap(&mut self) -> Option<PhysicalPageNumber> {
+        todo!()
+    }
 
-//     fn iter_mut(&mut self) -> impl Iterator<Item = &mut dyn super::PageTableEntry> {
-//         todo!()
-//     }
-// }
+    fn granularity() -> usize {
+        // Granularity of PageTable is the page size
+        4096
+    }
+}
 
-// struct PageTableEntry32<T> {
-//     inner: u32,
-//     _phantom: core::marker::PhantomData<T>,
-// }
+#[derive(Debug, Default)]
+pub struct EntryBuilder {
+    inner: u32,
+}
 
-// impl<T> From<u32> for PageTableEntry32<T> {
-//     fn from(value: u32) -> Self {
-//         Self {
-//             inner: value,
-//             _phantom: core::marker::PhantomData,
-//         }
-//     }
-// }
+impl EntryBuilder {
+    fn with_ppn(mut self, ppn: PhysicalPageNumber) -> Self {
+        self.inner |= (ppn.ppn << 12) as u32;
+        self
+    }
 
-// impl super::PageTableEntry for PageTableEntry32<PageDirectory> {
-//     fn map_page(&mut self, _ppn: ()) -> Result<(), ()> {
-//         todo!()
-//     }
-// }
+    fn with_options(mut self, writeable: bool, user_accessible: bool) -> Self {
+        if writeable {
+            self.inner |= 1 << 1;
+        }
 
-// impl super::PageTableEntry for PageTableEntry32<PageTable> {
-//     fn map_page(&mut self, _ppn: ()) -> Result<(), ()> {
-//         todo!()
-//     }
-// }
+        if user_accessible {
+            self.inner |= 1 << 2;
+        }
+
+        self
+    }
+
+    fn with_huge_page(mut self, _ppn: PhysicalPageNumber) -> Self {
+        self.inner |= 1 << 7;
+        todo!()
+    }
+
+    fn build_present(self) -> u32 {
+        self.inner | 1
+    }
+}
