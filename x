@@ -10,13 +10,11 @@ limine_bin_url = "https://github.com/limine-bootloader/limine/archive/refs/heads
 
 def main():
     # Build the kernel
-    proc = subprocess.run(["cargo", "build"], cwd="kernel")
-    if proc.returncode != 0:
-        exit(proc.returncode)
+    proc = subprocess.run(["cargo", "build"], check=True, cwd="./kernel")
 
     target_path = "target"
     rootfs_path = "target/rootfs"
-    subprocess.run([ "mkdir", "-p", f"{rootfs_path}boot" ], check=True)
+    subprocess.run([ "mkdir", "-p", f"{rootfs_path}/boot" ], check=True)
 
     disk_image_path = "target/disk.img"
     disk_image_size = 20*1024*1024
@@ -27,9 +25,6 @@ def main():
             file.write(bytearray(disk_image_size))
         partition_disk(disk_image_path)
 
-    # Create ext2 partition and MBR partition tables
-    partition_disk(disk_image_path)
-
     # Build and install limine bootloader
     build_limine(target_path, disk_image_path, rootfs_path)
 
@@ -39,10 +34,10 @@ def main():
         check=True
     )
     
-    copy_file("target/x86/debug/kernel", f"{rootfs_path}/boot/kernel32_dbg", True)
-    copy_file("target/x86/release/kernel", f"{rootfs_path}/boot/kernel32")
-    copy_file("target/x86_64/debug/kernel", f"{rootfs_path}/boot/kernel64_dbg")
-    copy_file("target/x86_64/release/kernel", f"{rootfs_path}/boot/kernel64")
+    copy_file("kernel/target/x86/debug/kernel", f"{rootfs_path}/boot/kernel32_dbg", True)
+    copy_file("kernel/target/x86/release/kernel", f"{rootfs_path}/boot/kernel32")
+    copy_file("kernel/target/x86_64/debug/kernel", f"{rootfs_path}/boot/kernel64_dbg")
+    copy_file("kernel/target/x86_64/release/kernel", f"{rootfs_path}/boot/kernel64")
 
     subprocess.run(["tree", rootfs_path])
 
