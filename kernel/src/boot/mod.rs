@@ -25,18 +25,29 @@ extern "C" {
     static __bss_end: c_void;
 }
 
-/// Clears the entire BSS segment of the kernel image. This may corrupt kernel memory if the
-/// function is executed after data in the BSS segment has been mutated. Furthermore, this function
-/// assumes that the symbols `__bss_start` and `_bss_end` defined in the linker script are valid and
-/// well-aligned addresses.
+/// Clear the BSS segment of the kernel image assuming it is is located at the addresses defined by
+/// the `__bss_start` and `__bss_end` symbols defined in the linker script.
+///
+/// ## Safety
+///
+/// This must be executed before any other rust code starts, and must not be executed after that.
 #[no_mangle]
 unsafe extern "C" fn clear_bss() {
+    use core::ptr;
     use core::{ops::Range, slice};
+
+    extern "C" {
+        /// Start address of the BSS segment.
+        static mut __bss_start: u8;
+
+        /// End address of the BSS segment.
+        static mut __bss_end: u8;
+    }
 
     unsafe {
         slice::from_mut_ptr_range::<u8>(Range {
-            start: (&__bss_start as *const c_void).cast_mut().cast(),
-            end: (&__bss_end as *const c_void).cast_mut().cast(),
+            start: ptr::addr_of_mut!(__bss_start),
+            end: ptr::addr_of_mut!(__bss_end),
         })
         .fill(0);
     }

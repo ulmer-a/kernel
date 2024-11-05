@@ -23,7 +23,7 @@ pub struct GeneralTableEntry<const LEVEL: usize> {
 
 impl<const LEVEL: usize> GeneralTableEntry<LEVEL> {
     /// Whether the entry is present (a page table or a physical page is mapped).
-    fn is_present(&self) -> bool {
+    fn is_present(self) -> bool {
         self.inner & 1 != 0
     }
 }
@@ -89,7 +89,9 @@ pub struct EntryBuilder {
 }
 
 impl EntryBuilder {
+    #[expect(clippy::cast_possible_truncation, reason = "Range is asserted")]
     fn with_ppn(mut self, ppn: PhysicalPageNumber) -> Self {
+        assert!(ppn.ppn < 2usize.pow(20), "PPN may only use 20 bit max.");
         self.inner |= (ppn.ppn << 12) as u32;
         self
     }

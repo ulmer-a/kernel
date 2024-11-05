@@ -10,6 +10,7 @@ use paging::PagingMode;
 #[cfg(target_arch = "x86")]
 pub const PHYS_MAP_LIMIT: u64 = 0x0800_0000; // 128 MiB
 
+#[expect(clippy::needless_pass_by_value, reason = "False positive")]
 pub fn bootstrap_subsystem<P: PagingMode>(memory_map: impl physical::MemoryMap) {
     // Print system memory map to the kernel log
     log::info!("System memory map:\n{}", memory_map.fmt());

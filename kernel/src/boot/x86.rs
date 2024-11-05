@@ -75,6 +75,7 @@ unsafe extern "C" fn multiboot_start() {
 #[no_mangle]
 #[cfg(target_arch = "x86")]
 extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! {
+    use crate::mem::paging::x86;
     use log::{debug, info};
 
     crate::logging::initialize_kernel_log();
@@ -97,9 +98,8 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! 
     let memory_map = multiboot
         .memory_map()
         .expect("Expected multiboot memory map to be present")
-        .map(|mb_region| mb_region.into());
+        .map(Into::into);
 
-    use crate::mem::paging::x86;
     crate::mem::bootstrap_subsystem::<x86::Paging>(memory_map);
 
     // TODO Implement the rest of the boot process here.

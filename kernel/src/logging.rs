@@ -6,6 +6,7 @@ use log::{Metadata, Record};
 /// Global instance of the kernel logger.
 static LOGGER: KernelLog = KernelLog {};
 
+#[expect(clippy::unwrap_used, reason = "This is not a final implementation")]
 pub fn initialize_kernel_log() {
     log::set_logger(&LOGGER)
         .map(|()| log::set_max_level(log::LevelFilter::Trace))

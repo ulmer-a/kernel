@@ -4,6 +4,8 @@
 #![feature(slice_from_ptr_range)] // mem::bss()
 #![feature(allocator_api)]
 #![deny(clippy::float_arithmetic, reason = "no hardware float support")]
+#![deny(clippy::pedantic)]
+#![deny(clippy::unwrap_used)]
 
 extern crate alloc;
 
