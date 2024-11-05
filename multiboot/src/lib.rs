@@ -263,11 +263,11 @@ impl Flags {
     }
 
     fn is_mmap_valid(&self) -> bool {
-        self.is_nth_bit_set(3)
+        self.is_nth_bit_set(6)
     }
 
     fn is_modules_valid(&self) -> bool {
-        self.is_nth_bit_set(6)
+        self.is_nth_bit_set(3)
     }
 
     fn is_bootloader_name_valid(&self) -> bool {
