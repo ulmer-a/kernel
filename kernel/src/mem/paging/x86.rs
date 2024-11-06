@@ -4,12 +4,6 @@ use super::{PhysicalPageNumber, TableEntryImpl};
 
 pub struct Paging;
 
-impl super::PagingMode for Paging {
-    fn create_boot_addr_space() {
-        todo!()
-    }
-}
-
 type PageDirectoryEntry = GeneralTableEntry<2>;
 
 type PageTableEntry = GeneralTableEntry<1>;

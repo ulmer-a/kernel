@@ -2,14 +2,14 @@
 
 #![allow(unused)]
 
-use core::{marker::PhantomData, pin::Pin};
+use core::{
+    marker::PhantomData,
+    ops::{Add, AddAssign},
+    pin::Pin,
+};
 
 #[cfg(target_arch = "x86")]
 pub mod x86;
-
-pub trait PagingMode: Sized {
-    fn create_boot_addr_space();
-}
 
 pub struct Unknown;
 pub struct Unmapped;
@@ -55,10 +55,27 @@ pub trait TableEntryImpl {
 }
 
 /// Identifies a single page frame within the physical memory space.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalPageNumber {
     ppn: usize,
 }
+
+impl Add<usize> for PhysicalPageNumber {
+    type Output = PhysicalPageNumber;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self {
+            ppn: self.ppn + rhs,
+        }
+    }
+}
+
+impl AddAssign<usize> for PhysicalPageNumber {
+    fn add_assign(&mut self, rhs: usize) {
+        self.ppn += rhs;
+    }
+}
+
 
 impl PhysicalPageNumber {
     pub fn into_physical_ptr<T>(self) -> *mut T {

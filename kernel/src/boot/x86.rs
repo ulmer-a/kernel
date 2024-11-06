@@ -1,6 +1,7 @@
 //! On the x86-32 architecture, this kernel uses the `multiboot` boot protocol. Please check the
 //! specification for details on how it works.
 
+use core::ops::Range;
 use multiboot::{
     header::{Header as MultibootHeader, HeaderBuilder},
     Multiboot,
@@ -75,8 +76,8 @@ unsafe extern "C" fn multiboot_start() {
 #[no_mangle]
 #[cfg(target_arch = "x86")]
 extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! {
-    use crate::mem::paging::x86;
     use log::{debug, info};
+    use types::mem::RangeFilterExt;
 
     crate::logging::initialize_kernel_log();
     info!("Kernel by Alexander Ulmer v{}", env!("CARGO_PKG_VERSION"));
@@ -94,15 +95,45 @@ extern "C" fn multiboot_main(magic: u32, mb_ptr: *const core::ffi::c_void) -> ! 
         mb_ptr, multiboot
     );
 
-    // Retrieve multiboot memory map and use it to bootstrap the memory subsystem
-    let memory_map = multiboot
+    // Retrieve multiboot memory map and split it at 16 MiB. Everything below 16 MiB we call
+    // reclaimable, because it is clobbered by the bootloader, BIOS, the kernel image, etc.
+    // We assume that everything above 16 MiB is available and safe to use. However, this split
+    // implies that at least 16 MiB of system RAM is available.
+    let (reclaimable, available_mem) = multiboot
         .memory_map()
-        .expect("Expected multiboot memory map to be present")
-        .map(Into::into);
+        .expect("Need multiboot memory map to be present")
+        .map(Into::into)
+        .split_once(0x100_0000); // 16 MiB
 
-    crate::mem::bootstrap_subsystem::<x86::Paging>(memory_map);
+    debug!("Reclaimable boot memory: {:?}", reclaimable);
+    debug!("Remaining memory: {:?}", available_mem.clone());
+
+    crate::mem::bootstrap_subsystem(available_mem);
 
     // TODO Implement the rest of the boot process here.
 
     crate::arch::halt_core();
+}
+
+use crate::mem::paging::PhysicalPageNumber;
+
+/// Allocates by incrementing the start page. This allocator cannot deallocate.
+pub struct SimplePageFrameAllocator {
+    range: Range<PhysicalPageNumber>,
+}
+
+impl SimplePageFrameAllocator {
+    pub fn new(range: Range<PhysicalPageNumber>) -> Self {
+        Self { range }
+    }
+
+    pub fn alloc_page(&mut self) -> Option<PhysicalPageNumber> {
+        if self.range.start < self.range.end {
+            let ppn = self.range.start;
+            self.range.start += 1;
+            Some(ppn)
+        } else {
+            None
+        }
+    }
 }
